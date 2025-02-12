@@ -602,19 +602,43 @@
         if (user.id !== currentUser.id) {
             const playerCard = document.createElement('div');
             playerCard.classList.add('player-card');
-            playerCard.innerHTML = `
-                <img src="${user.avatar}" alt="Avatar" width="60" height="60">
-                <div class="player-info">
-                    <h4>${user.name}</h4>
-                    <p>Symbol: ${user.symbol}</p>
-                </div>
-                <button class="btn btn-primary" onclick="challengeUser('${user.id}')">Challenge</button>
-            `;
+
+            // Player Avatar
+            const avatarImg = document.createElement('img');
+            avatarImg.src = user.avatar;
+            avatarImg.alt = "Avatar";
+            avatarImg.style.width = '60px';
+            avatarImg.style.height = '60px';
+            avatarImg.style.borderRadius = '50%';
+
+            // Player Info
+            const playerInfo = document.createElement('div');
+            playerInfo.className = 'player-info';
+
+            const playerName = document.createElement('h4');
+            playerName.textContent = user.name;
+
+            const playerSymbol = document.createElement('p');
+            playerSymbol.textContent = `Symbol: ${user.symbol}`;
+
+            playerInfo.appendChild(playerName);
+            playerInfo.appendChild(playerSymbol);
+
+            // Challenge Button
+            const challengeBtn = document.createElement('button');
+            challengeBtn.className = 'btn btn-primary';
+            challengeBtn.textContent = 'Challenge';
+            challengeBtn.addEventListener('click', () => challengeUser(user.id));
+
+            // Assemble Card
+            playerCard.appendChild(avatarImg);
+            playerCard.appendChild(playerInfo);
+            playerCard.appendChild(challengeBtn);
+
             usersList.appendChild(playerCard);
         }
     });
 }
-
         // Challenge user
         function challengeUser(userId) {
             const opponent = onlineUsers.find(user => user.id === userId);
