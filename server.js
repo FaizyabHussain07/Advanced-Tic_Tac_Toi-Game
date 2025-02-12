@@ -12,7 +12,7 @@ app.use(express.static(path.join(__dirname)));
 
 // Serve index.html for the root route
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
+    res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 const users = new Map();
@@ -35,60 +35,53 @@ io.on('connection', (socket) => {
         io.emit('updateUsersList', Array.from(users.values()));
     });
 
-    
+
     // Challenge system
-    // Update challenge system handlers
-socket.on('challengeUser', ({ opponentSocketId }) => {
-    const challenger = users.get(socket.id);
-    if (users.has(opponentSocketId)) {
-        io.to(opponentSocketId).emit('challengeReceived', {
-            challenger: { ...challenger, socketId: socket.id }
+    socket.on('challengeUser', ({ opponentSocketId }) => {
+        const challenger = users.get(socket.id);
+        if (users.has(opponentSocketId)) {
+            io.to(opponentSocketId).emit('challengeReceived', {
+                challenger: { ...challenger, socketId: socket.id }
+            });
+        }
+    });
+
+    socket.on('acceptChallenge', ({ challengerSocketId }) => {
+        const roomId = `${socket.id}-${challengerSocketId}`;
+
+        // Join both players to the same room
+        socket.join(roomId);
+        io.sockets.sockets.get(challengerSocketId).join(roomId); // Make sure challenger joins too
+
+        // Notify both players
+        io.to(challengerSocketId).emit('challengeAccepted', {
+            accepter: users.get(socket.id),
+            roomId
         });
-    }
-});
-
-socket.on('acceptChallenge', ({ challengerSocketId }) => {
-    const roomId = `${socket.id}-${challengerSocketId}`;
-    
-    // Join both players to the same room
-    socket.join(roomId);
-    io.to(challengerSocketId).emit('joinRoom', roomId);
-    
-    // Notify both players
-    io.to(challengerSocketId).emit('challengeAccepted', {
-        accepter: users.get(socket.id),
-        roomId
-    });
-    socket.emit('challengeAccepted', {
-        accepter: users.get(socket.id),
-        roomId
-    });
-});
-
-// Update game move handler
-socket.on('gameMove', ({ move, roomId }) => {
-    socket.to(roomId).emit('opponentMove', move);
-});
-
-
-    socket.on('declineChallenge', ({ decliner, challenger }) => {
-        io.to(challenger.id).emit('challengeDeclined', decliner);
+        socket.emit('challengeAccepted', {
+            accepter: users.get(socket.id),
+            roomId
+        });
     });
 
-    socket.on('gameMove', ({ player, move }) => {
-        socket.broadcast.emit('opponentMove', move);
+    socket.on('gameMove', ({ move, roomId }) => {
+        socket.to(roomId).emit('opponentMove', move);
     });
 
-    socket.on('rematchRequest', ({ requester, opponent }) => {
-        io.to(opponent.id).emit('rematchRequested', requester);
+    socket.on('declineChallenge', ({ decliner, challengerSocketId }) => {
+        io.to(challengerSocketId).emit('challengeDeclined', decliner);
     });
 
-    socket.on('acceptRematch', ({ accepter, requester }) => {
-        io.to(requester.id).emit('rematchAccepted', accepter);
+    socket.on('rematchRequest', ({ requesterSocketId, opponentSocketId }) => {
+        io.to(opponentSocketId).emit('rematchRequested', {requester: users.get(socket.id)});
     });
 
-    socket.on('declineRematch', ({ decliner, requester }) => {
-        io.to(requester.id).emit('rematchDeclined', decliner);
+    socket.on('acceptRematch', ({ accepterSocketId, requesterSocketId }) => {
+        io.to(requesterSocketId).emit('rematchAccepted', {accepter: users.get(socket.id)});
+    });
+
+    socket.on('declineRematch', ({ declinerSocketId, requesterSocketId }) => {
+        io.to(requesterSocketId).emit('rematchDeclined', {decliner: users.get(socket.id)});
     });
 
     socket.on('updateStats', (user) => {
@@ -103,4 +96,4 @@ socket.on('gameMove', ({ move, roomId }) => {
 });
 
 const port = process.env.PORT || 3000;
-server.listen(port, () => console.log(`Server running on port ${port}`));
+server.listen(port, () => console.log(`Server running on port ${port}`))
