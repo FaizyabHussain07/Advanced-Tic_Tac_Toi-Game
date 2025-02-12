@@ -640,29 +640,22 @@
     });
 }
         // In the challengeUser function
-function challengeUser(userId) {
-    socket.emit('challengeUser', { opponentId: userId });
+function challengeUser(socketId) {
+    socket.emit('challengeUser', { opponentSocketId: socketId });
 }
 
 // Add these socket listeners
-socket.on('challengeReceived', ({ challenger, challengerSocketId }) => {
-    currentOpponent = {
-        ...challenger,
-        socketId: challengerSocketId
-    };
+socket.on('challengeReceived', ({ challenger }) => {
+    currentOpponent = challenger;
     document.getElementById("challengeText").textContent = 
         `${challenger.name} has challenged you!`;
     challengePopup.style.display = "block";
 });
 
-socket.on('challengeAccepted', ({ accepter, accepterSocketId }) => {
-    currentOpponent = {
-        ...accepter,
-        socketId: accepterSocketId
-    };
-    // Join the game room
-    socket.emit('joinRoom', currentOpponent.socketId);
-    startGame(false);
+socket.on('challengeAccepted', ({ accepter, roomId }) => {
+    currentOpponent = accepter;
+    socket.emit('joinRoom', roomId);
+    startGame(false, roomId);
 });
 
 
@@ -678,17 +671,23 @@ socket.on('challengeAccepted', ({ accepter, accepterSocketId }) => {
             isPlayingAI = true;
             startGame(true);
         }
+// पुराना function हटाएँ
+let currentGameRoom = null;
+function startGame(isAI, roomId = null) {
+    currentGameRoom = roomId;
+    gameBoardState = Array(9).fill(null);
+    currentPlayer = "X";
+    gameActive = true;
+    isPlayingAI = isAI;
+    updateGameBoard();
+    updateGameStatus();
+    showScreen("gameScreen");
+}
 
-        // Start game
-        function startGame(isAI) {
-            gameBoardState = Array(9).fill(null);
-            currentPlayer = "X";
-            gameActive = true;
-            isPlayingAI = isAI;
-            updateGameBoard();
-            updateGameStatus();
-            showScreen("gameScreen");
-        }
+// पुराना code हटाएँ
+if (!isPlayingAI) {
+    socket.emit('gameMove', { move: index, roomId: currentGameRoom });
+}
 
         // Update game board
         function updateGameBoard() {
@@ -777,6 +776,10 @@ socket.on('challengeAccepted', ({ accepter, accepterSocketId }) => {
 
         // Minimax algorithm
         function minimax(board, depth, isMaximizing) {
+            const result = checkWinner(board);
+    if (result === 'X') return isMaximizing ? 1 : -1;
+    if (result === 'O') return isMaximizing ? -1 : 1;
+    if (board.every(cell => cell !== null)) return 0;
             if (checkWinner()) {
                 return isMaximizing ? -1 : 1;
             } else if (board.every(cell => cell !== null)) {
@@ -809,20 +812,21 @@ socket.on('challengeAccepted', ({ accepter, accepterSocketId }) => {
         }
 
         // Check for winner
-        function checkWinner() {
-            const winPatterns = [
-                [0, 1, 2], [3, 4, 5], [6, 7, 8], // Rows
-                [0, 3, 6], [1, 4, 7], [2, 5, 8], // Columns
-                [0, 4, 8], [2, 4, 6] // Diagonals
-            ];
+        function checkWinner(board = gameBoardState) {
+    const winPatterns = [
+        [0, 1, 2], [3, 4, 5], [6, 7, 8],
+        [0, 3, 6], [1, 4, 7], [2, 5, 8],
+        [0, 4, 8], [2, 4, 6]
+    ];
 
-            return winPatterns.some(pattern => {
-                const [a, b, c] = pattern;
-                return gameBoardState[a] && 
-                       gameBoardState[a] === gameBoardState[b] && 
-                       gameBoardState[a] === gameBoardState[c];
-            });
+    for (const pattern of winPatterns) {
+        const [a, b, c] = pattern;
+        if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+            return board[a];
         }
+    }
+    return null;
+}
 
         // Update game status
         function updateGameStatus() {

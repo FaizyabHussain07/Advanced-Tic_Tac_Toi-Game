@@ -21,7 +21,7 @@ io.on('connection', (socket) => {
     console.log('New client connected');
 
     socket.on('userJoined', (user) => {
-        users.set(socket.id, userWithSocket);
+        users.set(socket.id, user);
         io.emit('updateUsersList', Array.from(users.values()));
     });
 
@@ -37,30 +37,38 @@ io.on('connection', (socket) => {
 
     
     // Challenge system
-    socket.on('challengeUser', ({ opponentId }) => {
-        const challenger = users.get(socket.id);
-        const opponentEntry = Array.from(users.entries())
-            .find(([_, user]) => user.id === opponentId);
-        
-        if(opponentEntry) {
-            const [opponentSocketId] = opponentEntry;
-            io.to(opponentSocketId).emit('challengeReceived', {
-                challenger,
-                challengerSocketId: socket.id
-            });
-        }
-    });
-
-    socket.on('acceptChallenge', ({ challengerSocketId }) => {
-        const accepter = users.get(socket.id);
-        
-        // Create game room
-        socket.join(challengerSocketId);
-        io.to(challengerSocketId).emit('challengeAccepted', {
-            accepter,
-            accepterSocketId: socket.id
+    // Update challenge system handlers
+socket.on('challengeUser', ({ opponentSocketId }) => {
+    const challenger = users.get(socket.id);
+    if (users.has(opponentSocketId)) {
+        io.to(opponentSocketId).emit('challengeReceived', {
+            challenger: { ...challenger, socketId: socket.id }
         });
+    }
+});
+
+socket.on('acceptChallenge', ({ challengerSocketId }) => {
+    const roomId = `${socket.id}-${challengerSocketId}`;
+    
+    // Join both players to the same room
+    socket.join(roomId);
+    io.to(challengerSocketId).emit('joinRoom', roomId);
+    
+    // Notify both players
+    io.to(challengerSocketId).emit('challengeAccepted', {
+        accepter: users.get(socket.id),
+        roomId
     });
+    socket.emit('challengeAccepted', {
+        accepter: users.get(socket.id),
+        roomId
+    });
+});
+
+// Update game move handler
+socket.on('gameMove', ({ move, roomId }) => {
+    socket.to(roomId).emit('opponentMove', move);
+});
 
 
     socket.on('declineChallenge', ({ decliner, challenger }) => {
