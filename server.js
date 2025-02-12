@@ -86,6 +86,7 @@ io.on('connection', (socket) => {
 
     socket.on('updateStats', (user) => {
         users.set(socket.id, user);
+        io.emit('updateUsersList', Array.from(users.values()));
     });
 
     socket.on('disconnect', () => {

@@ -481,7 +481,8 @@
                 wins: 0,
                 losses: 0,
                 draws: 0,
-                experience: 0
+                experience: 0,
+                socketId: socket.id 
             };
 
             socket.emit("userJoined", currentUser);
@@ -505,8 +506,8 @@
             }
         });
 
-        // Update Users List
-        socket.on("updateUsersList", (users) => {
+                // Update Users List
+                socket.on("updateUsersList", (users) => {
             onlineUsers = users;
             renderUserList(users);
         });
@@ -551,12 +552,16 @@
             challengePopup.style.display = "none";
         }
 
-        function declineChallenge(challengerSocketId) {
-            socket.emit('declineChallenge', { decliner: currentUser, challengerSocketId: challengerSocketId });
-            challengePopup.style.display = "none";
-        }
+        socket.on('rematchRequested', (data) => {
+            const { requester } = data;
+            resultPopup.innerHTML = `
+                <h2>${requester.username} requests a rematch!</h2>
+                <button class="btn btn-primary" onclick="acceptRematch('${requester.id}')">Accept</button>
+                <button class="btn btn-secondary" onclick="declineRematch('${requester.id}')">Decline</button>
+            `;
+            resultPopup.style.display = "block";
+        });
 
-        //Challenge Accepted
         socket.on('challengeAccepted', (data) => {
             const { accepter, roomId } = data;
             alert(`${accepter.username} accepted your challenge! Joining game...`);
@@ -571,9 +576,20 @@
             startGame(roomId);
         });
 
-        socket.on('challengeDeclined', (decliner) => {
-            alert(`${decliner.username} declined your challenge.`);
-        });
+        function acceptRematch(requesterSocketId) {
+            socket.emit('acceptRematch', { accepterSocketId: socket.id, requesterSocketId: requesterSocketId });
+            resultPopup.style.display = "none";
+        }
+
+        function declineRematch(requesterSocketId) {
+            socket.emit('declineRematch', { declinerSocketId: socket.id, requesterSocketId: requesterSocketId });
+            resultPopup.style.display = "none";
+        }
+
+        function requestRematch() {
+            socket.emit('rematchRequest', { requesterSocketId: socket.id, opponentSocketId: currentOpponentSocketId });
+        }
+
 
         // Start Game
         function startGame(roomId) {
