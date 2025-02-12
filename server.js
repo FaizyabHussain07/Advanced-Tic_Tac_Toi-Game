@@ -21,7 +21,7 @@ io.on('connection', (socket) => {
     console.log('New client connected');
 
     socket.on('userJoined', (user) => {
-        users.set(socket.id, user);
+        users.set(socket.id, userWithSocket);
         io.emit('updateUsersList', Array.from(users.values()));
     });
 
