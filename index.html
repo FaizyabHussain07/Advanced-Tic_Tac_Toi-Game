@@ -639,20 +639,32 @@
         }
     });
 }
-        // Challenge user
-        function challengeUser(userId) {
-            const opponent = onlineUsers.find(user => user.id === userId);
-            if (opponent) {
-                socket.emit('challengeUser', { challenger: currentUser, opponent });
-            }
-        }
+        // In the challengeUser function
+function challengeUser(userId) {
+    socket.emit('challengeUser', { opponentId: userId });
+}
 
-        // Accept challenge
-        function acceptChallenge() {
-            socket.emit('acceptChallenge', { accepter: currentUser, challenger: currentOpponent });
-            challengePopup.style.display = "none";
-            startGame(false);
-        }
+// Add these socket listeners
+socket.on('challengeReceived', ({ challenger, challengerSocketId }) => {
+    currentOpponent = {
+        ...challenger,
+        socketId: challengerSocketId
+    };
+    document.getElementById("challengeText").textContent = 
+        `${challenger.name} has challenged you!`;
+    challengePopup.style.display = "block";
+});
+
+socket.on('challengeAccepted', ({ accepter, accepterSocketId }) => {
+    currentOpponent = {
+        ...accepter,
+        socketId: accepterSocketId
+    };
+    // Join the game room
+    socket.emit('joinRoom', currentOpponent.socketId);
+    startGame(false);
+});
+
 
         // Decline challenge
         function declineChallenge() {

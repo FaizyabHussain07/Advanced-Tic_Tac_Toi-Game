@@ -35,13 +35,33 @@ io.on('connection', (socket) => {
         io.emit('updateUsersList', Array.from(users.values()));
     });
 
-    socket.on('challengeUser', ({ challenger, opponent }) => {
-        io.to(opponent.id).emit('challengeReceived', challenger);
+    
+    // Challenge system
+    socket.on('challengeUser', ({ opponentId }) => {
+        const challenger = users.get(socket.id);
+        const opponentEntry = Array.from(users.entries())
+            .find(([_, user]) => user.id === opponentId);
+        
+        if(opponentEntry) {
+            const [opponentSocketId] = opponentEntry;
+            io.to(opponentSocketId).emit('challengeReceived', {
+                challenger,
+                challengerSocketId: socket.id
+            });
+        }
     });
 
-    socket.on('acceptChallenge', ({ accepter, challenger }) => {
-        io.to(challenger.id).emit('challengeAccepted', accepter);
+    socket.on('acceptChallenge', ({ challengerSocketId }) => {
+        const accepter = users.get(socket.id);
+        
+        // Create game room
+        socket.join(challengerSocketId);
+        io.to(challengerSocketId).emit('challengeAccepted', {
+            accepter,
+            accepterSocketId: socket.id
+        });
     });
+
 
     socket.on('declineChallenge', ({ decliner, challenger }) => {
         io.to(challenger.id).emit('challengeDeclined', decliner);
