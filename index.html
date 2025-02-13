@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tic Tac Toe Ultimate</title>
+    <title>Tic Tac Toe Game</title>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -63,9 +63,7 @@
             display: block;
         }
 
-        h1,
-        h2,
-        h3 {
+        h1, h2, h3 {
             margin-bottom: 1rem;
             text-align: center;
             color: var(--primary);
@@ -114,7 +112,7 @@
             cursor: pointer;
         }
 
-        .symbol-selection input:checked+span {
+        .symbol-selection input:checked + span {
             background: var(--primary);
             color: white;
         }
@@ -142,9 +140,15 @@
             position: relative;
             margin-left: auto;
         }
-        .profile-actions .btn{
-            background-color:#9ac7e6;
+
+        .profile-actions .btn {
+            background-color: var(--text);
+            color: white;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
         }
+
         .dropdown {
             display: none;
             position: absolute;
@@ -298,6 +302,10 @@
             transition: all 0.3s ease;
             margin: 0.5rem;
             font-size: 1rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
         }
 
         .btn-primary {
@@ -331,6 +339,12 @@
             margin: 0.5rem 0;
             font-size: 1rem;
         }
+
+        .icon {
+            width: 20px;
+            height: 20px;
+            fill: currentColor;
+        }
     </style>
 </head>
 
@@ -340,7 +354,9 @@
         <div id="welcomeScreen" class="screen active">
             <h1>Welcome to Advanced Tic Tac Toe Game</h1>
             <p>Play with friends online or challenge our AI-Bot</p>
-            <button class="btn btn-primary" onclick="showScreen('loginScreen')">Start Game</button>
+            <button class="btn btn-primary" onclick="showScreen('loginScreen')">
+                Start Game
+            </button>
         </div>
 
         <!-- Login Screen -->
@@ -348,9 +364,11 @@
             <h2>Create Your Profile</h2>
             <div class="avatar-upload">
                 <input type="file" id="avatarInput" accept="image/*" hidden>
-                <img id="avatarPreview" src="https://via.placeholder.com/150">
-                <button class="btn btn-secondary"
-                    onclick="document.getElementById('avatarInput').click()"><img class="upd-icon" src="upload.png">Upload Picture</button>
+                <img id="avatarPreview" src="https://via.placeholder.com/150" >
+                <button class="btn btn-secondary" onclick="document.getElementById('avatarInput').click()">
+                   <img src="upload.png" class="icon" alt="">
+                    Upload Picture
+                </button>
             </div>
             <input type="text" id="username" placeholder="Enter your name">
             <div class="symbol-selection">
@@ -369,14 +387,26 @@
         <!-- Lobby Screen -->
         <div id="lobbyScreen" class="screen">
             <div class="profile-header">
-                <img id="userAvatar" src="https://via.placeholder.com/60" alt="Avatar">
+                <img id="userAvatar" src="https://via.placeholder.com/60" alt="User Avatar">
                 <h2>Welcome, <span id="userName"></span> ( Symbol : <span id="userSymbol"></span>)</h2>
                 <div class="profile-actions">
-                    <button class="btn" onclick="toggleDropdown()"><img class="upd-icon" src="image.png" alt="profifle-icon">Profile ▼</button>
+                    <button class="btn" onclick="toggleDropdown()">
+                        <img src="image.png" class="icon" alt="">
+                        Profile
+                    </button>
                     <div id="profileDropdown" class="dropdown">
-                        <button class="btn btn-secondary" onclick="editProfile()"><img src="edit-info.png" alt="edit-profile-icon">Edit Profile</button>
-                        <button class="btn btn-secondary" onclick="showUserStats()"><img src="data-management.png" alt="view-perfomance-icon">View Stats</button>
-                        <button class="btn btn-secondary" onclick="logout()"><img src="logout.png" alt="logout-icon">Logout</button>
+                        <button class="btn btn-secondary" onclick="editProfile()">
+                            <img src="edit-info.png" class="icon" alt="">
+                            Edit Profile
+                        </button>
+                        <button class="btn btn-secondary" onclick="showUserStats()">
+                            <img src="data-management.png" class="icon" alt="">
+                            View Stats
+                        </button>
+                        <button class="btn btn-secondary" onclick="logout()">
+                            <img src="logout.png" class="icon" alt="">
+                            Logout
+                        </button>
                     </div>
                 </div>
             </div>
@@ -384,16 +414,15 @@
             <div class="ai-section">
                 <h3>Play With AI-Bot</h3>
                 <select id="aiDifficulty" class="btn btn-secondary">
-                    <option value="easy">🟩 Easy 😃 </option>
-                    <option value="medium">🟨 Medium 😐 </option>
-                    <option value="hard">🟥 Hard 😈 </option>
+                    <option value="easy">🟩 Easy 😃</option>
+                    <option value="medium">🟨 Medium 😐</option>
+                    <option value="hard">🟥 Hard 😈</option>
                 </select>
                 <button class="btn btn-primary" onclick="startAIGame()">Play With AI</button>
             </div>
 
             <h3>Play With Online Players</h3>
             <div id="usersList"></div>
-
         </div>
 
         <!-- Game Screen -->
@@ -407,6 +436,7 @@
         </div>
 
         <!-- Result Popup -->
+        
         <div id="resultPopup" class="popup">
             <h2 id="resultText"></h2>
             <div class="game-actions">
@@ -518,7 +548,7 @@
                 draws: 0,
                 experience: 0,
                 gamesPlayed: 0,
-                socketId: socket.id // Add this line
+                socketId: socket.id
             };
 
             socket.emit("userJoined", currentUser);
@@ -915,17 +945,15 @@
         function showResultPopup(resultText) {
             document.getElementById('resultText').textContent = resultText;
             resultPopup.style.display = "block";
-            showScreen('resultPopup');
         }
 
         function closeResultPopup() {
-            showScreen('lobbyScreen');
             resultPopup.style.display = "none";
+            showScreen('lobbyScreen');
         }
 
         function requestRematch() {
             socket.emit('rematchRequest', { requesterSocketId: socket.id, opponentSocketId: currentOpponentSocketId });
-            showScreen('resultPopup');
         }
 
         socket.on('rematchRequested', (data) => {
@@ -936,7 +964,6 @@
                 <button class="btn btn-secondary" onclick="declineRematch('${requester.id}')">Decline</button>
             `;
             challengePopup.style.display = "block";
-            showScreen('challengePopup');
         });
 
         function acceptRematch(requesterSocketId) {
@@ -969,45 +996,23 @@
             document.getElementById('draws').textContent = currentUser.draws || 0;
             document.getElementById('experience').textContent = currentUser.experience || 0;
             userStatsPopup.style.display = "block";
-            showScreen('userStatsPopup');
         }
 
         function closeUserStats() {
             userStatsPopup.style.display = "none";
-            showScreen('lobbyScreen');
         }
 
         function backToLobby() {
-            resultPopup.style.display = "none";
+            closeResultPopup();
             showScreen('lobbyScreen');
-            startGame();
         }
 
         function rematch() {
-            closeResultPopup();
             if (isPlayingAI) {
                 startGame();
             } else {
                 requestRematch();
             }
-        }
-        function toggleDropdown() {
-            document.getElementById("profileDropdown").classList.toggle("show");
-        }
-
-        function showUserStats() {
-            document.getElementById('gamesPlayed').textContent = currentUser.gamesPlayed || 0;
-            document.getElementById('wins').textContent = currentUser.wins || 0;
-            document.getElementById('losses').textContent = currentUser.losses || 0;
-            document.getElementById('draws').textContent = currentUser.draws || 0;
-            document.getElementById('experience').textContent = currentUser.experience || 0;
-            userStatsPopup.style.display = "block";
-            showScreen('userStatsPopup');
-        }
-
-        function closeUserStats() {
-            userStatsPopup.style.display = "none";
-            showScreen('lobbyScreen');
         }
 
         // Start Game
