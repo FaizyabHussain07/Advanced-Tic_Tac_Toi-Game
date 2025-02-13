@@ -543,583 +543,408 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.3.2/socket.io.js"></script>
     <script>
-        // Initialize Socket.io
         const socket = io();
-        // Game state
         let currentUser = null;
         let onlineUsers = [];
-        let gameBoardState = Array(9).fill(null);
-        let currentPlayer = "X";
-        let gameActive = false;
-        let isPlayingAI = false;
-        let aiDifficulty = "easy";
-        let currentOpponent = null;
-        let currentOpponentSocketId = null; // Store opponent's socket ID
-        let currentRoomId; // To store the current room ID
-
-        // DOM Elements
-        const screens = {
-            welcomeScreen: document.getElementById("welcomeScreen"),
-            loginScreen: document.getElementById("loginScreen"),
-            lobbyScreen: document.getElementById("lobbyScreen"),
-            gameScreen: document.getElementById("gameScreen")
+        let gameState = {
+            board: Array(9).fill(null),
+            currentPlayer: 'X',
+            roomId: null,
+            isMultiplayer: false,
+            difficulty: 'easy',
+            gameActive: false
         };
 
-        const avatarInput = document.getElementById("avatarInput");
-        const avatarPreview = document.getElementById("avatarPreview");
-        const usernameInput = document.getElementById("username");
-        const gameBoard = document.getElementById("gameBoard");
-        const gameStatus = document.getElementById("gameStatus");
-        const usersList = document.getElementById("usersList");
-        const userAvatarImage = document.getElementById("userAvatar");
-        const userNameSpan = document.getElementById("userName");
-        const resultPopup = document.getElementById("resultPopup");
-        const challengePopup = document.getElementById("challengePopup");
-        const userStatsPopup = document.getElementById("userStatsPopup");
+        // DOM Elements
+        const elements = {
+            screens: {
+                welcome: document.getElementById('welcomeScreen'),
+                login: document.getElementById('loginScreen'),
+                lobby: document.getElementById('lobbyScreen'),
+                game: document.getElementById('gameScreen')
+            },
+            avatarPreview: document.getElementById('avatarPreview'),
+            username: document.getElementById('username'),
+            gameBoard: document.getElementById('gameBoard'),
+            gameStatus: document.getElementById('gameStatus'),
+            usersList: document.getElementById('usersList'),
+            userAvatar: document.getElementById('userAvatar'),
+            userName: document.getElementById('userName'),
+            userSymbol: document.getElementById('userSymbol')
+        };
 
+        // Event Listeners
+        document.getElementById('avatarInput').addEventListener('change', handleAvatarUpload);
+        document.getElementById('editAvatarInput').addEventListener('change', handleEditAvatarUpload);
+        document.getElementById('editProfileForm').addEventListener('submit', handleProfileUpdate);
 
-        function setLoadingState(button, isLoading) {
-            button.disabled = isLoading;
-            button.innerHTML = isLoading
-                ? `<div class="loader"></div>`
-                : button.dataset.originalText;
-        }
-        // Show screens
-        function showScreen(screenId) {
-            Object.values(screens).forEach(screen => screen.classList.remove("active"));
-            screens[screenId].classList.add("active");
-        }
-
-        // Handle login
-        function login() {
-           const username = usernameInput.value.trim();
-    if (!username || username.length > 35) {
-        alert('Please enter a valid name (1-15 characters)');
-        return;
-    }
-            const symbol = document.querySelector("input[name='symbol']:checked").value;
-            const avatar = avatarPreview.src;
-
-            currentUser = {
-                id: socket.id,
-                username: username,
-                symbol: symbol,
-                avatar: avatar,
-                wins: 0,
-                losses: 0,
-                draws: 0,
-                experience: 0,
-                gamesPlayed: 0,
-                socketId: socket.id
-            };
-
-            socket.emit("userJoined", currentUser);
-            showScreen("lobbyScreen");
-
-            userNameSpan.textContent = username;
-            document.getElementById("userSymbol").textContent = symbol;
-            userAvatarImage.src = avatar;
-            updateStats();
+        // Game Initialization
+        function initGame() {
+            gameState.board = Array(9).fill(null);
+            gameState.gameActive = true;
+            elements.gameBoard.innerHTML = '';
+            
+            for(let i = 0; i < 9; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'cell';
+                cell.dataset.index = i;
+                cell.addEventListener('click', () => handleMove(i));
+                elements.gameBoard.appendChild(cell);
+            }
+            
+            updateGameStatus();
         }
 
-        // Update Avatar Preview
-        avatarInput.addEventListener('change', function () {
-            if (this.files && this.files[0]) {
-                const reader = new FileReader();
-
-                reader.onload = function (e) {
-                    avatarPreview.src = e.target.result;
+        // AI Logic
+        const AI = {
+            easy: board => getRandomMove(board),
+            
+            medium: (board, player) => {
+                const winMove = findWinningMove(board, player);
+                if(winMove !== null) return winMove;
+                const blockMove = findWinningMove(board, player === 'X' ? 'O' : 'X');
+                return blockMove !== null ? blockMove : getRandomMove(board);
+            },
+            
+            hard: (board, player) => {
+                let bestScore = -Infinity;
+                let bestMove = -1;
+                
+                for(let i = 0; i < 9; i++) {
+                    if(board[i]) continue;
+                    const newBoard = [...board];
+                    newBoard[i] = player;
+                    const score = minimax(newBoard, player, false);
+                    if(score > bestScore) {
+                        bestScore = score;
+                        bestMove = i;
+                    }
                 }
-
-                reader.readAsDataURL(this.files[0]);
+                return bestMove;
             }
-        });
+        };
 
-        // Update Users List
-        socket.on("updateUsersList", (users) => {
-            onlineUsers = users;
-            renderUserList(users);
-        });
-
-        function renderUserList(users) {
-            usersList.innerHTML = "";
-            users.forEach(user => {
-                if (user.id !== socket.id) {
-                    const playerCard = document.createElement("div");
-                    playerCard.classList.add("player-card");
-                    playerCard.innerHTML = `
-                        <img src="${user.avatar}" alt="Avatar" style="width: 40px; height: 40px; border-radius: 50%;">
-                        <div class="player-info">
-                            <span>${user.username}</span>
-                            <span class="player-symbol">(${user.symbol})</span>
-                        </div>
-                        <button class="btn btn-primary" onclick="challengeUser('${user.id}', '${user.socketId}')">Challenge</button>
-                    `;
-                    usersList.appendChild(playerCard);
+        function minimax(board, player, isMaximizing) {
+            if(checkWin(board, player)) return 1;
+            if(checkWin(board, player === 'X' ? 'O' : 'X')) return -1;
+            if(board.every(cell => cell)) return 0;
+            
+            let bestScore = isMaximizing ? -Infinity : Infinity;
+            const currentPlayer = isMaximizing ? player : (player === 'X' ? 'O' : 'X');
+            
+            for(let i = 0; i < 9; i++) {
+                if(board[i]) continue;
+                const newBoard = [...board];
+                newBoard[i] = currentPlayer;
+                const score = minimax(newBoard, player, !isMaximizing);
+                
+                if(isMaximizing) {
+                    bestScore = Math.max(bestScore, score);
+                } else {
+                    bestScore = Math.min(bestScore, score);
                 }
-            });
-        }
-
-        function challengeUser(userId, opponentSocketId) {
-    currentOpponent = onlineUsers.find(user => user.id === userId);
-    currentOpponentSocketId = opponentSocketId;
-    socket.emit('challengeUser', { opponentSocketId: opponentSocketId });
-}
-        socket.on('challengeReceived', (data) => {
-            const { challenger } = data;
-            challengePopup.innerHTML = `
-                <h2>${challenger.username} challenges you!</h2>
-                <button class="btn btn-primary" onclick="acceptChallenge('${challenger.socketId}')">Accept</button>
-                <button class="btn btn-secondary" onclick="declineChallenge('${challenger.socketId}')">Decline</button>
-            `;
-            challengePopup.style.display = "block";
-        });
-
-        function acceptChallenge(challengerSocketId) {
-            socket.emit('acceptChallenge', { challengerSocketId });
-            challengePopup.style.display = "none";
-        }
-
-        function declineChallenge(challengerSocketId) {
-            socket.emit('declineChallenge', { decliner: currentUser, challengerSocketId: challengerSocketId });
-            challengePopup.style.display = "none";
-            showScreen('lobbyScreen');
-        }
-
-        //Challenge Accepted
-        socket.on('challengeAccepted', (data) => {
-            const { accepter, roomId } = data;
-            alert(`${accepter.username} accepted your challenge! Joining game...`);
-            currentOpponentSocketId = accepter.id; // Store opponent's socket ID
-            // Start the game or navigate to the game screen
-            startGame(roomId);
-        });
-
-        // Handle joinRoom event
-        socket.on('joinRoom', (roomId) => {
-            console.log(`Joined room: ${roomId}`);
-            startGame(roomId);
-        });
-
-        socket.on('challengeDeclined', (decliner) => {
-            alert(`${decliner.username} declined your challenge.`);
-        });
-
-        // Game logic
-        function handleMove(event) {
-            const cell = event.target;
-            const index = cell.dataset.index;
-
-            if (gameBoardState[index] || !gameActive) return;
-
-            gameBoardState[index] = currentPlayer;
-            cell.textContent = currentPlayer;
-            cell.classList.add(currentPlayer.toLowerCase());
-
-            if (!isPlayingAI) {
-                // Emit the move to the server for online players
-                socket.emit('gameMove', { move: { index, player: currentPlayer }, roomId: currentRoomId });
             }
+            return bestScore;
+        }
 
-            currentPlayer = (currentPlayer === 'X') ? 'O' : 'X';
-            gameStatus.textContent = `Opponent's turn`;
-
-            if (checkWin()) {
-                endGame(currentPlayer === (currentUser ? currentUser.symbol : "X") ? "lose" : "win");
-            } else if (isDraw()) {
-                endGame("draw");
-            }
-
-            if (isPlayingAI && currentPlayer !== currentUser.symbol) {
-                setTimeout(aiMove, 500); // AI move after a short delay
+        // Game Logic
+        function handleMove(index) {
+            if(!gameState.gameActive || gameState.board[index]) return;
+            
+            makeMove(index, gameState.currentPlayer);
+            
+            if(gameState.isMultiplayer) {
+                socket.emit('gameMove', { index, roomId: gameState.roomId });
+            } else if(gameState.currentPlayer !== currentUser.symbol) {
+                setTimeout(() => {
+                    const move = AI[gameState.difficulty](gameState.board, gameState.currentPlayer);
+                    makeMove(move, gameState.currentPlayer);
+                }, 500);
             }
         }
 
-        socket.on('opponentMove', (move) => {
-            const { index, player } = move;
-            const cell = gameBoard.querySelector(`[data-index="${index}"]`);
-
-            gameBoardState[index] = player;
+        function makeMove(index, player) {
+            gameState.board[index] = player;
+            const cell = document.querySelector(`[data-index="${index}"]`);
             cell.textContent = player;
             cell.classList.add(player.toLowerCase());
 
-            currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
-            gameStatus.textContent = `Your turn`;
-
-            if (checkWin()) {
-                endGame(currentPlayer === (currentUser ? currentUser.symbol : "X") ? "lose" : "win");
-            } else if (isDraw()) {
-                endGame("draw");
+            if(checkWin(player)) {
+                handleGameEnd(player);
+            } else if(checkDraw()) {
+                handleGameEnd('draw');
+            } else {
+                gameState.currentPlayer = player === 'X' ? 'O' : 'X';
+                updateGameStatus();
             }
-        });
+        }
 
-        function checkWin(board = gameBoardState, player = currentPlayer) {
+        function checkWin(player) {
             const winPatterns = [
-                [0, 1, 2], [3, 4, 5], [6, 7, 8], // Rows
-                [0, 3, 6], [1, 4, 7], [2, 5, 8], // Columns
-                [0, 4, 8], [2, 4, 6]             // Diagonals
+                [0,1,2], [3,4,5], [6,7,8],
+                [0,3,6], [1,4,7], [2,5,8],
+                [0,4,8], [2,4,6]
             ];
 
-            for (const pattern of winPatterns) {
-                const [a, b, c] = pattern;
-                if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+            return winPatterns.some(pattern => {
+                const [a,b,c] = pattern;
+                if(gameState.board[a] === player && 
+                   gameState.board[b] === player && 
+                   gameState.board[c] === player) {
+                    pattern.forEach(i => 
+                        document.querySelector(`[data-index="${i}"]`).classList.add('win')
+                    );
                     return true;
                 }
-            }
-            return false;
+                return false;
+            });
         }
 
-        function isDraw() {
-            return gameBoardState.every(cell => cell !== null);
+        function checkDraw() {
+            return gameState.board.every(cell => cell !== null);
         }
 
-        function endGame(result) {
-            gameActive = false;
-            let resultText;
-
-            if (result === "win") {
-                resultText = "You Win!";
-                currentUser.wins++;
-                currentUser.experience += 10;
-                currentUser.gamesPlayed++;
-
-            } else if (result === "lose") {
-                resultText = "You Lose!";
-                currentUser.losses++;
-                currentUser.experience -= 5;
-                currentUser.gamesPlayed++;
-
-            } else {
-                resultText = "It's a Draw!";
+        function handleGameEnd(result) {
+            gameState.gameActive = false;
+            const popup = document.getElementById('resultPopup');
+            
+            if(result === 'draw') {
+                popup.innerHTML = `<h2>It's a Draw!</h2>`;
                 currentUser.draws++;
-                currentUser.gamesPlayed++;
+            } else {
+                const isWinner = result === currentUser.symbol;
+                popup.innerHTML = `<h2>You ${isWinner ? 'Win!' : 'Lose!'}</h2>`;
+                isWinner ? currentUser.wins++ : currentUser.losses++;
             }
-            updateStats();
-            showResultPopup(resultText);
-        }
-
-        function updateStats() {
-            document.getElementById('gamesPlayed').textContent = currentUser.gamesPlayed || 0;
-            document.getElementById('wins').textContent = currentUser.wins || 0;
-            document.getElementById('losses').textContent = currentUser.losses || 0;
-            document.getElementById('draws').textContent = currentUser.draws || 0;
-            document.getElementById('experience').textContent = currentUser.experience || 0;
+            
+            popup.innerHTML += `
+                <button class="btn btn-primary" onclick="rematch()">Rematch</button>
+                <button class="btn btn-secondary" onclick="backToLobby()">Lobby</button>
+            `;
+            popup.style.display = 'block';
+            
+            currentUser.gamesPlayed++;
             socket.emit('updateStats', currentUser);
         }
 
-        // AI Bot Logic
-        function startAIGame() {
-    isPlayingAI = true;
-    currentOpponent = { username: "AI-Bot", symbol: (currentUser.symbol === "X" ? "O" : "X") };
-    aiDifficulty = document.getElementById("aiDifficulty").value;
-    startGame();
-}
+        function updateGameStatus() {
+            elements.gameStatus.textContent = gameState.isMultiplayer ?
+                `${gameState.currentPlayer}'s Turn` : 
+                gameState.currentPlayer === currentUser.symbol ?
+                'Your Turn' : 'AI Thinking...';
+        }
 
-        function aiMove() {
-            if (!gameActive || currentPlayer === currentUser.symbol) return; // Only AI's turn
-
-            let bestMove;
-
-            if (aiDifficulty === "easy") {
-                // Easy AI: Random move
-                let availableMoves = [];
-                for (let i = 0; i < gameBoardState.length; i++) {
-                    if (!gameBoardState[i]) {
-                        availableMoves.push(i);
-                    }
-                }
-                if (availableMoves.length > 0) {
-                    bestMove = availableMoves[Math.floor(Math.random() * availableMoves.length)];
-                }
-            } else if (aiDifficulty === "medium") {
-                // Medium AI:  Basic blocking
-                bestMove = findWinningMove(currentOpponent.symbol) || findBlockingMove(currentUser.symbol) || getRandomMove();
-            }
-            else if (aiDifficulty === "hard") {
-                bestMove = minimax(gameBoardState, currentOpponent.symbol).index;
-
-            }
-            else {
-                bestMove = getRandomMove();
-            }
-            if (bestMove !== undefined) {
-                handleMoveAI(bestMove);
+        // User Management
+        function handleAvatarUpload(e) {
+            const file = e.target.files[0];
+            if(file) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    elements.avatarPreview.src = event.target.result;
+                };
+                reader.readAsDataURL(file);
             }
         }
 
-        function getRandomMove() {
-            let availableMoves = [];
-            for (let i = 0; i < gameBoardState.length; i++) {
-                if (!gameBoardState[i]) {
-                    availableMoves.push(i);
-                }
-            }
-            if (availableMoves.length > 0) {
-                return availableMoves[Math.floor(Math.random() * availableMoves.length)];
-            }
-            return null;
-        }
-
-        function findWinningMove(player) {
-            for (let i = 0; i < gameBoardState.length; i++) {
-                if (!gameBoardState[i]) {
-                    let tempBoard = [...gameBoardState];
-                    tempBoard[i] = player;
-                    if (checkWin(tempBoard, player)) {
-                        return i;
-                    }
-                }
-            }
-            return null;
-        }
-
-        function findBlockingMove(player) {
-            let aiSymbol = (player === 'X') ? 'O' : 'X';
-            for (let i = 0; i < gameBoardState.length; i++) {
-                if (!gameBoardState[i]) {
-                    let tempBoard = [...gameBoardState];
-                    tempBoard[i] = aiSymbol;
-                    if (checkWin(tempBoard, aiSymbol)) {
-                        return i;
-                    }
-                }
-            }
-            return null;
-        }
-        function emptyIndexies(board) {
-            return board.reduce((acc, sym, i) => sym === null ? acc.concat(i) : acc, [])
-        }
-
-        function minimax(newBoard, player) {
-            var availSpots = emptyIndexies(newBoard);
-
-            if (checkWin(newBoard, currentUser.symbol)) {
-                return { score: -10 };
-            } else if (checkWin(newBoard, currentOpponent.symbol)) {
-                return { score: 10 };
-            } else if (availSpots.length === 0) {
-                return { score: 0 };
-            }
-
-            var moves = [];
-
-            for (var i = 0; i < availSpots.length; i++) {
-                var move = {};
-                move.index = availSpots[i];
-
-                newBoard[availSpots[i]] = player;
-
-                if (player == currentOpponent.symbol) {
-                    var result = minimax(newBoard, currentUser.symbol);
-                    move.score = result.score;
-                } else {
-                    var result = minimax(newBoard, currentOpponent.symbol);
-                    move.score = result.score;
-                }
-
-                newBoard[availSpots[i]] = move.index;
-
-                moves.push(move);
-            }
-
-            var bestMove;
-            if (player === currentOpponent.symbol) {
-                var bestScore = -10000;
-                for (var i = 0; i < moves.length; i++) {
-                    if (moves[i].score > bestScore) {
-                        bestScore = moves[i].score;
-                        bestMove = i;
-                    }
-                }
-            } else {
-                var bestScore = 10000;
-                for (var i = 0; i < moves.length; i++) {
-                    if (moves[i].score < bestScore) {
-                        bestScore = moves[i].score;
-                        bestMove = i;
-                    }
-                }
-            }
-
-            return moves[bestMove];
-        }
-
-        function handleMoveAI(index) {
-            if (gameBoardState[index] || !gameActive) return;
-
-            gameBoardState[index] = currentOpponent.symbol;
-            const cell = gameBoard.querySelector(`[data-index="${index}"]`);
-            cell.textContent = currentOpponent.symbol;
-            cell.classList.add(currentOpponent.symbol.toLowerCase());
-
-            currentPlayer = currentUser.symbol;
-            gameStatus.textContent = `Your turn`;
-
-            if (checkWin()) {
-                endGame(currentOpponent.symbol === currentUser.symbol ? "win" : "lose");
-            } else if (isDraw()) {
-                endGame("draw");
+        function handleEditAvatarUpload(e) {
+            const file = e.target.files[0];
+            if(file) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    document.getElementById('editAvatarPreview').src = event.target.result;
+                };
+                reader.readAsDataURL(file);
             }
         }
 
-        // Edit Profile
+        function handleProfileUpdate(e) {
+            e.preventDefault();
+            currentUser.username = document.getElementById('editUsername').value;
+            currentUser.symbol = document.querySelector('input[name="editSymbol"]:checked').value;
+            currentUser.avatar = document.getElementById('editAvatarPreview').src;
+            
+            elements.userAvatar.src = currentUser.avatar;
+            elements.userName.textContent = currentUser.username;
+            elements.userSymbol.textContent = currentUser.symbol;
+            
+            socket.emit('userUpdated', currentUser);
+            closeEditProfilePopup();
+        }
+
+        // Multiplayer Functions
+        function challengeUser(socketId) {
+            socket.emit('challengeUser', socketId);
+        }
+
+        function acceptChallenge(challengerId) {
+            socket.emit('acceptChallenge', { challengerId });
+            document.getElementById('challengePopup').style.display = 'none';
+        }
+
+        function declineChallenge(challengerId) {
+            socket.emit('declineChallenge', { challengerId });
+            document.getElementById('challengePopup').style.display = 'none';
+        }
+
+        // UI Functions
+        function showScreen(screen) {
+            Object.values(elements.screens).forEach(s => s.style.display = 'none');
+            elements.screens[screen].style.display = 'block';
+        }
+
+        function renderUsersList() {
+            elements.usersList.innerHTML = onlineUsers
+                .filter(user => user.socketId !== socket.id)
+                .map(user => `
+                    <div class="player-card">
+                        <img src="${user.avatar}" class="player-avatar">
+                        <div class="player-info">
+                            <h3>${user.username}</h3>
+                            <p>Symbol: ${user.symbol}</p>
+                            <button class="btn btn-primary" 
+                                onclick="challengeUser('${user.socketId}')">
+                                Challenge
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+        }
+
+        function toggleDropdown() {
+            document.getElementById('profileDropdown').classList.toggle('show');
+        }
+
         function editProfile() {
-            document.getElementById('editProfilePopup').classList.add('show');
             document.getElementById('editUsername').value = currentUser.username;
             document.querySelector(`input[name="editSymbol"][value="${currentUser.symbol}"]`).checked = true;
             document.getElementById('editAvatarPreview').src = currentUser.avatar;
+            document.getElementById('editProfilePopup').style.display = 'block';
         }
 
         function closeEditProfilePopup() {
-            document.getElementById('editProfilePopup').classList.remove('show');
-        }
-
-        document.getElementById('editProfileForm').addEventListener('submit', function (event) {
-            event.preventDefault();
-            const newUsername = document.getElementById('editUsername').value;
-            const newSymbol = document.querySelector('input[name="editSymbol"]:checked').value;
-            const newAvatar = document.getElementById('editAvatarPreview').src;
-
-            currentUser.username = newUsername;
-            currentUser.symbol = newSymbol;
-            currentUser.avatar = newAvatar;
-
-            userNameSpan.textContent = newUsername;
-            document.getElementById("userSymbol").textContent = newSymbol;
-            userAvatarImage.src = newAvatar;
-
-            socket.emit('userUpdated', currentUser); // Notify the server
-
-            closeEditProfilePopup();
-        });
-
-        document.getElementById('editAvatarInput').addEventListener('change', function () {
-            if (this.files && this.files[0]) {
-                const reader = new FileReader();
-                reader.onload = function (e) {
-                    document.getElementById('editAvatarPreview').src = e.target.result;
-                }
-                reader.readAsDataURL(this.files[0]);
-            }
-        });
-
-        // Result Popup
-        function showResultPopup(resultText) {
-            document.getElementById('resultText').textContent = resultText;
-            resultPopup.style.display = "block";
-        }
-
-        function closeResultPopup() {
-            resultPopup.style.display = "none";
-            showScreen('lobbyScreen');
-        }
-
-        function requestRematch() {
-            socket.emit('rematchRequest', { requesterSocketId: socket.id, opponentSocketId: currentOpponentSocketId });
-        }
-
-        socket.on('rematchRequested', (data) => {
-            const { requester } = data;
-            challengePopup.innerHTML = `
-                <h2>${requester.username} requests a rematch!</h2>
-                <button class="btn btn-primary" onclick="acceptRematch('${requester.id}')">Accept</button>
-                <button class="btn btn-secondary" onclick="declineRematch('${requester.id}')">Decline</button>
-            `;
-            challengePopup.style.display = "block";
-        });
-
-        function acceptRematch(requesterSocketId) {
-            socket.emit('acceptRematch', { accepterSocketId: socket.id, requesterSocketId: requesterSocketId });
-            challengePopup.style.display = "none";
-            resultPopup.style.display = "none";
-            showScreen('gameBoard');
-        }
-
-        function declineRematch(requesterSocketId) {
-            socket.emit('declineRematch', { declinerSocketId: socket.id, requesterSocketId: requesterSocketId });
-            challengePopup.style.display = "none";
-            resultPopup.style.display = "none";
-            showScreen('lobbyScreen');
-        }
-
-        socket.on('rematchAccepted', (accepter) => {
-            alert(`${accepter.username} accepted the rematch!`);
-            startGame(currentRoomId);
-            resultPopup.style.display = "none"; // Hide the result popup
-        });
-
-        socket.on('rematchDeclined', (decliner) => {
-            alert(`${decliner.username} declined the rematch.`);
-            resultPopup.style.display = "none";
-            showScreen('lobbyScreen');
-        });
-
-        function toggleDropdown() {
-            document.getElementById("profileDropdown").classList.toggle("show");
+            document.getElementById('editProfilePopup').style.display = 'none';
         }
 
         function showUserStats() {
-            document.getElementById('gamesPlayed').textContent = currentUser.gamesPlayed || 0;
-            document.getElementById('wins').textContent = currentUser.wins || 0;
-            document.getElementById('losses').textContent = currentUser.losses || 0;
-            document.getElementById('draws').textContent = currentUser.draws || 0;
-            document.getElementById('experience').textContent = currentUser.experience || 0;
-            userStatsPopup.style.display = "block";
+            document.getElementById('gamesPlayed').textContent = currentUser.gamesPlayed;
+            document.getElementById('wins').textContent = currentUser.wins;
+            document.getElementById('losses').textContent = currentUser.losses;
+            document.getElementById('draws').textContent = currentUser.draws;
+            document.getElementById('userStatsPopup').style.display = 'block';
         }
 
         function closeUserStats() {
-            userStatsPopup.style.display = "none";
+            document.getElementById('userStatsPopup').style.display = 'none';
         }
 
         function backToLobby() {
-            closeResultPopup();
-            showScreen('lobbyScreen');
+            showScreen('lobby');
+            document.getElementById('resultPopup').style.display = 'none';
         }
 
         function rematch() {
-            if (isPlayingAI) {
-                startGame();
+            if(gameState.isMultiplayer) {
+                socket.emit('rematch', gameState.roomId);
             } else {
-                requestRematch();
+                initGame();
             }
-            resultPopup.style.display = "none";
+            document.getElementById('resultPopup').style.display = 'none';
         }
 
-        // Start Game
-        function startGame(roomId) {
-            showScreen('gameScreen');
-            resultPopup.style.display = "none"; // Hide the result popup
-            gameBoard.innerHTML = '';
-            gameBoardState = Array(9).fill(null);
-            currentPlayer = 'X';
-            gameActive = true;
-            if (roomId) {
-                currentRoomId = roomId;
-            }
-            gameStatus.textContent = `Your turn`;
-
-            for (let i = 0; i < 9; i++) {
-                const cell = document.createElement('div');
-                cell.classList.add('cell');
-                cell.dataset.index = i;
-                cell.addEventListener('click', handleMove);
-                gameBoard.appendChild(cell);
-            }
-
-            if (isPlayingAI && currentUser.symbol === 'O') {
-                aiMove();
-            }
-        }
-
-        // Logout
         function logout() {
-            socket.emit('updateStats', currentUser);
             socket.emit('userLeft', currentUser);
             currentUser = null;
-            onlineUsers = [];
-            showScreen('welcomeScreen');
+            showScreen('welcome');
         }
 
+        // Socket Handlers
+        socket.on('updateUsersList', users => {
+            onlineUsers = users;
+            renderUsersList();
+        });
+
+        socket.on('challengeReceived', challenger => {
+            document.getElementById('challengeText').textContent = `${challenger.username} challenges you!`;
+            document.getElementById('challengePopup').style.display = 'block';
+        });
+
+        socket.on('gameStart', roomId => {
+            gameState.roomId = roomId;
+            gameState.isMultiplayer = true;
+            showScreen('game');
+            initGame();
+        });
+
+        socket.on('gameUpdate', game => {
+            gameState.board = game.board;
+            gameState.currentPlayer = game.currentPlayer;
+            updateBoard();
+            updateGameStatus();
+        });
+
+        socket.on('gameEnd', result => {
+            handleGameEnd(result.winner || 'draw');
+        });
+
+        // Initialization
+        function login() {
+            const username = elements.username.value.trim();
+            const symbol = document.querySelector('input[name="symbol"]:checked').value;
+            
+            currentUser = {
+                socketId: socket.id,
+                username,
+                symbol,
+                avatar: elements.avatarPreview.src,
+                wins: 0,
+                losses: 0,
+                draws: 0,
+                gamesPlayed: 0
+            };
+
+            socket.emit('userJoined', currentUser);
+            showScreen('lobby');
+        }
+
+        function startAIGame() {
+            gameState.isMultiplayer = false;
+            gameState.difficulty = document.getElementById('aiDifficulty').value;
+            gameState.currentPlayer = 'X';
+            showScreen('game');
+            initGame();
+            
+            if(currentUser.symbol === 'O') {
+                setTimeout(() => {
+                    const move = AI[gameState.difficulty](gameState.board, 'X');
+                    makeMove(move, 'X');
+                }, 500);
+            }
+        }
+
+        // Helper Functions
+        function getRandomMove(board) {
+            const emptyCells = board.reduce((acc, cell, index) => 
+                cell === null ? [...acc, index] : acc, []);
+            return emptyCells[Math.floor(Math.random() * emptyCells.length)];
+        }
+
+        function findWinningMove(board, player) {
+            for(let i=0; i<9; i++) {
+                if(board[i]) continue;
+                const tempBoard = [...board];
+                tempBoard[i] = player;
+                if(checkWin(tempBoard, player)) return i;
+            }
+            return null;
+        }
+
+        function updateBoard() {
+            gameState.board.forEach((cell, index) => {
+                const element = document.querySelector(`[data-index="${index}"]`);
+                element.textContent = cell;
+                element.className = `cell${cell ? ' ' + cell.toLowerCase() : ''}`;
+            });
+        }
     </script>
 </body>
 

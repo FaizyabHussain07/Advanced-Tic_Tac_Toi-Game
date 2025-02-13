@@ -7,102 +7,119 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
 
-// Serve static files from the current directory
 app.use(express.static(path.join(__dirname)));
 
-// Serve index.html for the root route
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
-});
-
+// Game State Management
+const activeGames = new Map();
 const users = new Map();
 
 io.on('connection', (socket) => {
-    console.log('New client connected');
+    console.log(`User connected: ${socket.id}`);
 
+    // User Management
     socket.on('userJoined', (user) => {
-        users.set(socket.id, user);
+        const userData = {
+            ...user,
+            socketId: socket.id,
+            wins: 0,
+            losses: 0,
+            draws: 0,
+            gamesPlayed: 0
+        };
+        users.set(socket.id, userData);
         io.emit('updateUsersList', Array.from(users.values()));
     });
 
-    socket.on('connect_error', () => {
-        alert('Connection lost. Trying to reconnect...');
-    });
-
-    socket.on('reconnect', () => {
-        if (currentUser) socket.emit('userReconnected', currentUser);
-    });
-
-    socket.on('userUpdated', (user) => {
-        users.set(socket.id, user);
-        io.emit('updateUsersList', Array.from(users.values()));
-    });
-
-    socket.on('userLeft', (user) => {
-        users.delete(socket.id);
-        io.emit('updateUsersList', Array.from(users.values()));
-    });
-
-
-    // Challenge system
-    socket.on('challengeUser', ({ opponentSocketId }) => {
+    // Challenge System
+    socket.on('challengeUser', (opponentId) => {
         const challenger = users.get(socket.id);
-        if (users.has(opponentSocketId)) {
-            io.to(opponentSocketId).emit('challengeReceived', {
-                challenger: { ...challenger, socketId: socket.id }
-            });
+        io.to(opponentId).emit('challengeReceived', challenger);
+    });
+
+    socket.on('acceptChallenge', ({ challengerId }) => {
+        const roomId = `game-${socket.id}-${challengerId}`;
+        [socket.id, challengerId].forEach(id => {
+            const player = io.sockets.sockets.get(id);
+            if(player) {
+                player.join(roomId);
+                player.emit('gameStart', { 
+                    roomId,
+                    opponent: users.get(id === socket.id ? challengerId : socket.id)
+                });
+            }
+        });
+        
+        activeGames.set(roomId, {
+            players: [socket.id, challengerId],
+            board: Array(9).fill(null),
+            currentPlayer: 'X'
+        });
+    });
+
+    // Gameplay Handling
+    socket.on('gameMove', ({ index, roomId }) => {
+        const game = activeGames.get(roomId);
+        if(game && game.players.includes(socket.id)) {
+            game.board[index] = game.currentPlayer;
+            game.currentPlayer = game.currentPlayer === 'X' ? 'O' : 'X';
+            
+            // Check game status
+            const result = checkGameStatus(game.board);
+            if(result) {
+                handleGameEnd(roomId, result);
+            }
+            
+            io.to(roomId).emit('gameUpdate', game);
         }
     });
 
-    socket.on('acceptChallenge', ({ challengerSocketId }) => {
-        const roomId = `${socket.id}-${challengerSocketId}`;
-
-        // Join both players to the same room
-        socket.join(roomId);
-        io.sockets.sockets.get(challengerSocketId).join(roomId); // Make sure challenger joins too
-
-        // Notify both players
-        io.to(challengerSocketId).emit('challengeAccepted', {
-            accepter: users.get(socket.id),
-            roomId
-        });
-        socket.emit('challengeAccepted', {
-            accepter: users.get(socket.id),
-            roomId
-        });
-    });
-
-    socket.on('gameMove', ({ move, roomId }) => {
-        socket.to(roomId).emit('opponentMove', move);
-    });
-
-    socket.on('declineChallenge', ({ decliner, challengerSocketId }) => {
-        io.to(challengerSocketId).emit('challengeDeclined', decliner);
-    });
-
-    socket.on('rematchRequest', ({ requesterSocketId, opponentSocketId }) => {
-        io.to(opponentSocketId).emit('rematchRequested', { requester: users.get(socket.id) });
-    });
-
-    socket.on('acceptRematch', ({ accepterSocketId, requesterSocketId }) => {
-        io.to(requesterSocketId).emit('rematchAccepted', { accepter: users.get(socket.id) });
-    });
-
-    socket.on('declineRematch', ({ declinerSocketId, requesterSocketId }) => {
-        io.to(requesterSocketId).emit('rematchDeclined', { decliner: users.get(socket.id) });
-    });
-
-    socket.on('updateStats', (user) => {
-        users.set(socket.id, user);
-        io.emit('updateUsersList', Array.from(users.values()));
-    });
-
+    // Disconnection Handling
     socket.on('disconnect', () => {
         users.delete(socket.id);
         io.emit('updateUsersList', Array.from(users.values()));
-        console.log('Client disconnected');
     });
+
+    // Helper Functions
+    function checkGameStatus(board) {
+        const winPatterns = [
+            [0,1,2], [3,4,5], [6,7,8],
+            [0,3,6], [1,4,7], [2,5,8],
+            [0,4,8], [2,4,6]
+        ];
+
+        for(let pattern of winPatterns) {
+            const [a,b,c] = pattern;
+            if(board[a] && board[a] === board[b] && board[a] === board[c]) {
+                return { winner: board[a], pattern };
+            }
+        }
+        return board.every(cell => cell) ? 'draw' : null;
+    }
+
+    function handleGameEnd(roomId, result) {
+        const game = activeGames.get(roomId);
+        if(!game) return;
+
+        game.players.forEach(playerId => {
+            const player = users.get(playerId);
+            if(player) {
+                player.gamesPlayed++;
+                if(result === 'draw') {
+                    player.draws++;
+                } else {
+                    if(player.symbol === result.winner) {
+                        player.wins++;
+                    } else {
+                        player.losses++;
+                    }
+                }
+            }
+        });
+
+        io.to(roomId).emit('gameEnd', result);
+        activeGames.delete(roomId);
+    }
 });
 
-const port = process.env.PORT || 3000;
-server.listen(port, () => console.log(`Server running on port ${port}`))
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
