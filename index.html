@@ -6,6 +6,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tic Tac Toe Game</title>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Tic Tac Toe Game</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
     <style>
         :root {
             --primary: #3498db;
@@ -52,7 +60,6 @@
                 opacity: 0;
                 transform: translateY(-20px);
             }
-
             to {
                 opacity: 1;
                 transform: translateY(0);
@@ -63,9 +70,7 @@
             display: block;
         }
 
-        h1,
-        h2,
-        h3 {
+        h1, h2, h3 {
             margin-bottom: 1rem;
             text-align: center;
             color: var(--primary);
@@ -114,7 +119,7 @@
             cursor: pointer;
         }
 
-        .symbol-selection input:checked+span {
+        .symbol-selection input:checked + span {
             background: var(--primary);
             color: white;
         }
@@ -264,7 +269,6 @@
                 transform: translate(-50%, -50%) scale(0.9);
                 opacity: 0;
             }
-
             to {
                 transform: translate(-50%, -50%) scale(1);
                 opacity: 1;
@@ -346,6 +350,63 @@
             width: 20px;
             height: 20px;
             fill: currentColor;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+
+            .screen {
+                padding: 1rem;
+            }
+
+            #gameBoard {
+                max-width: 250px;
+            }
+
+            .cell {
+                font-size: 2.5rem;
+            }
+
+            .btn {
+                padding: 0.6rem 1.2rem;
+                font-size: 0.9rem;
+            }
+
+            input[type="text"],
+            select {
+                width: 80%;
+            }
+        }
+
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 1.5rem;
+            }
+
+            h2 {
+                font-size: 1.3rem;
+            }
+
+            .profile-header {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .profile-actions {
+                margin-left: 0;
+                margin-top: 1rem;
+            }
+
+            #gameBoard {
+                max-width: 200px;
+            }
+
+            .cell {
+                font-size: 2rem;
+            }
         }
     </style>
 </head>
@@ -429,12 +490,9 @@
 
         <!-- Game Screen -->
         <div id="gameScreen" class="screen">
+            <button class="btn btn-secondary" onclick="backToLobby()"><img src="left-arrow.png" class="icon" alt="">Back to Lobby</button>
             <h2 id="gameStatus"></h2>
             <div id="gameBoard"></div>
-            <div class="game-actions">
-                <button class="btn btn-primary" onclick="rematch()">Rematch</button>
-                <button class="btn btn-secondary" onclick="backToLobby()">Back to Lobby</button>
-            </div>
         </div>
 
         <!-- Result Popup -->
@@ -442,8 +500,7 @@
         <div id="resultPopup" class="popup">
             <h2 id="resultText"></h2>
             <div class="game-actions">
-                <button class="btn btn-primary" onclick="rematch()">Rematch</button>
-                <button class="btn btn-secondary" onclick="backToLobby()">Back to Lobby</button>
+                <button class="btn btn-secondary" onclick="backToLobby()"><img src="left-arrow.png" class="icon" alt="">Back to Lobby</button>
             </div>
         </div>
 
