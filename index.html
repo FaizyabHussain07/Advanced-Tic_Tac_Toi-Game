@@ -969,11 +969,13 @@
         function acceptRematch(requesterSocketId) {
             socket.emit('acceptRematch', { accepterSocketId: socket.id, requesterSocketId: requesterSocketId });
             challengePopup.style.display = "none";
+            showScreen('gameBoard')
         }
 
         function declineRematch(requesterSocketId) {
             socket.emit('declineRematch', { declinerSocketId: socket.id, requesterSocketId: requesterSocketId });
             challengePopup.style.display = "none";
+            showScreen('gameBoard')
         }
 
         socket.on('rematchAccepted', (accepter) => {
