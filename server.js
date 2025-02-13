@@ -25,6 +25,14 @@ io.on('connection', (socket) => {
         io.emit('updateUsersList', Array.from(users.values()));
     });
 
+    socket.on('connect_error', () => {
+        alert('Connection lost. Trying to reconnect...');
+    });
+
+    socket.on('reconnect', () => {
+        if (currentUser) socket.emit('userReconnected', currentUser);
+    });
+
     socket.on('userUpdated', (user) => {
         users.set(socket.id, user);
         io.emit('updateUsersList', Array.from(users.values()));
@@ -73,15 +81,15 @@ io.on('connection', (socket) => {
     });
 
     socket.on('rematchRequest', ({ requesterSocketId, opponentSocketId }) => {
-        io.to(opponentSocketId).emit('rematchRequested', {requester: users.get(socket.id)});
+        io.to(opponentSocketId).emit('rematchRequested', { requester: users.get(socket.id) });
     });
 
     socket.on('acceptRematch', ({ accepterSocketId, requesterSocketId }) => {
-        io.to(requesterSocketId).emit('rematchAccepted', {accepter: users.get(socket.id)});
+        io.to(requesterSocketId).emit('rematchAccepted', { accepter: users.get(socket.id) });
     });
 
     socket.on('declineRematch', ({ declinerSocketId, requesterSocketId }) => {
-        io.to(requesterSocketId).emit('rematchDeclined', {decliner: users.get(socket.id)});
+        io.to(requesterSocketId).emit('rematchDeclined', { decliner: users.get(socket.id) });
     });
 
     socket.on('updateStats', (user) => {

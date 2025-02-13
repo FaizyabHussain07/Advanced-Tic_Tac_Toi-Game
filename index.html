@@ -63,7 +63,9 @@
             display: block;
         }
 
-        h1, h2, h3 {
+        h1,
+        h2,
+        h3 {
             margin-bottom: 1rem;
             text-align: center;
             color: var(--primary);
@@ -100,7 +102,7 @@
         #editAvatarPreview:hover {
             transform: scale(1.05);
         }
-       
+
         .symbol-selection {
             display: flex;
             gap: 1rem;
@@ -112,7 +114,7 @@
             cursor: pointer;
         }
 
-        .symbol-selection input:checked + span {
+        .symbol-selection input:checked+span {
             background: var(--primary);
             color: white;
         }
@@ -364,9 +366,9 @@
             <h2>Create Your Profile</h2>
             <div class="avatar-upload">
                 <input type="file" id="avatarInput" accept="image/*" hidden>
-                <img id="avatarPreview" src="https://via.placeholder.com/150" >
+                <img id="avatarPreview" src="https://via.placeholder.com/150">
                 <button class="btn btn-secondary" onclick="document.getElementById('avatarInput').click()">
-                   <img src="upload.png" class="icon" alt="">
+                    <img src="upload.png" class="icon" alt="">
                     Upload Picture
                 </button>
             </div>
@@ -436,7 +438,7 @@
         </div>
 
         <!-- Result Popup -->
-        
+
         <div id="resultPopup" class="popup">
             <h2 id="resultText"></h2>
             <div class="game-actions">
@@ -526,6 +528,13 @@
         const challengePopup = document.getElementById("challengePopup");
         const userStatsPopup = document.getElementById("userStatsPopup");
 
+
+        function setLoadingState(button, isLoading) {
+            button.disabled = isLoading;
+            button.innerHTML = isLoading
+                ? `<div class="loader"></div>`
+                : button.dataset.originalText;
+        }
         // Show screens
         function showScreen(screenId) {
             Object.values(screens).forEach(screen => screen.classList.remove("active"));
@@ -534,7 +543,11 @@
 
         // Handle login
         function login() {
-            const username = usernameInput.value;
+           const username = usernameInput.value.trim();
+    if (!username || username.length > 15) {
+        alert('Please enter a valid name (1-15 characters)');
+        return;
+    }
             const symbol = document.querySelector("input[name='symbol']:checked").value;
             const avatar = avatarPreview.src;
 
@@ -599,11 +612,10 @@
         }
 
         function challengeUser(userId, opponentSocketId) {
-            currentOpponent = onlineUsers.find(user => user.id === userId);
-            currentOpponentSocketId = opponentSocketId;
-            socket.emit('challengeUser', { opponentSocketId: opponentSocketId });
-        }
-
+    currentOpponent = onlineUsers.find(user => user.id === userId);
+    currentOpponentSocketId = opponentSocketId;
+    socket.emit('challengeUser', { opponentSocketId: opponentSocketId });
+}
         socket.on('challengeReceived', (data) => {
             const { challenger } = data;
             challengePopup.innerHTML = `
@@ -748,11 +760,11 @@
 
         // AI Bot Logic
         function startAIGame() {
-            isPlayingAI = true;
-            currentOpponent = { username: "AI-Bot", symbol: (currentUser.symbol === "X" ? "O" : "X") };
-            aiDifficulty = document.getElementById("aiDifficulty").value;
-            startGame();
-        }
+    isPlayingAI = true;
+    currentOpponent = { username: "AI-Bot", symbol: (currentUser.symbol === "X" ? "O" : "X") };
+    aiDifficulty = document.getElementById("aiDifficulty").value;
+    startGame();
+}
 
         function aiMove() {
             if (!gameActive || currentPlayer === currentUser.symbol) return; // Only AI's turn
@@ -844,7 +856,7 @@
 
             for (var i = 0; i < availSpots.length; i++) {
                 var move = {};
-                move.index = newBoard[availSpots[i]];
+                move.index = availSpots[i];
 
                 newBoard[availSpots[i]] = player;
 
@@ -1026,7 +1038,7 @@
 
         // Start Game
         function startGame(roomId) {
-           showScreen('gameScreen');
+            showScreen('gameScreen');
             resultPopup.style.display = "none"; // Hide the result popup
             gameBoard.innerHTML = '';
             gameBoardState = Array(9).fill(null);
@@ -1063,4 +1075,3 @@
 </body>
 
 </html>
-
