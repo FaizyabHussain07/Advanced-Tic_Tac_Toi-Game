@@ -33,7 +33,7 @@
         }
 
         .container {
-            max-width: 1200px;
+            max-width: 900px;
             width: 100%;
             padding: 2rem;
         }
@@ -102,7 +102,7 @@
         #editAvatarPreview:hover {
             transform: scale(1.05);
         }
-
+       
         .symbol-selection {
             display: flex;
             gap: 1rem;
@@ -142,7 +142,9 @@
             position: relative;
             margin-left: auto;
         }
-
+        .profile-actions .btn{
+            background-color:#9ac7e6;
+        }
         .dropdown {
             display: none;
             position: absolute;
@@ -325,7 +327,7 @@
             padding: 0.8rem;
             border: 1px solid #ddd;
             border-radius: 0.5rem;
-            width: 100%;
+            width: 60%;
             margin: 0.5rem 0;
             font-size: 1rem;
         }
@@ -336,7 +338,7 @@
     <div class="container">
         <!-- Welcome Screen -->
         <div id="welcomeScreen" class="screen active">
-            <h1>Welcome to Tic Tac Toe Ultimate</h1>
+            <h1>Welcome to Advanced Tic Tac Toe Game</h1>
             <p>Play with friends online or challenge our AI-Bot</p>
             <button class="btn btn-primary" onclick="showScreen('loginScreen')">Start Game</button>
         </div>
@@ -346,9 +348,9 @@
             <h2>Create Your Profile</h2>
             <div class="avatar-upload">
                 <input type="file" id="avatarInput" accept="image/*" hidden>
-                <img id="avatarPreview" src="https://via.placeholder.com/150" alt="Avatar">
+                <img id="avatarPreview" src="https://via.placeholder.com/150">
                 <button class="btn btn-secondary"
-                    onclick="document.getElementById('avatarInput').click()">Choose Avatar</button>
+                    onclick="document.getElementById('avatarInput').click()"><img class="upd-icon" src="upload.png">Upload Picture</button>
             </div>
             <input type="text" id="username" placeholder="Enter your name">
             <div class="symbol-selection">
@@ -370,11 +372,11 @@
                 <img id="userAvatar" src="https://via.placeholder.com/60" alt="Avatar">
                 <h2>Welcome, <span id="userName"></span> ( Symbol : <span id="userSymbol"></span>)</h2>
                 <div class="profile-actions">
-                    <button class="btn btn-secondary" onclick="toggleDropdown()">Profile ▼</button>
+                    <button class="btn" onclick="toggleDropdown()"><img class="upd-icon" src="image.png" alt="profifle-icon">Profile ▼</button>
                     <div id="profileDropdown" class="dropdown">
-                        <button class="btn btn-secondary" onclick="editProfile()">Edit Profile</button>
-                        <button class="btn btn-secondary" onclick="showUserStats()">View Stats</button>
-                        <button class="btn btn-secondary" onclick="logout()">Logout</button>
+                        <button class="btn btn-secondary" onclick="editProfile()"><img src="edit-info.png" alt="edit-profile-icon">Edit Profile</button>
+                        <button class="btn btn-secondary" onclick="showUserStats()"><img src="data-management.png" alt="view-perfomance-icon">View Stats</button>
+                        <button class="btn btn-secondary" onclick="logout()"><img src="logout.png" alt="logout-icon">Logout</button>
                     </div>
                 </div>
             </div>
@@ -382,9 +384,9 @@
             <div class="ai-section">
                 <h3>Play With AI-Bot</h3>
                 <select id="aiDifficulty" class="btn btn-secondary">
-                    <option value="easy">Easy</option>
-                    <option value="medium">Medium</option>
-                    <option value="hard">Hard</option>
+                    <option value="easy">🟩 Easy 😃 </option>
+                    <option value="medium">🟨 Medium 😐 </option>
+                    <option value="hard">🟥 Hard 😈 </option>
                 </select>
                 <button class="btn btn-primary" onclick="startAIGame()">Play With AI</button>
             </div>
@@ -917,6 +919,7 @@
         }
 
         function closeResultPopup() {
+            showScreen('lobbyScreen');
             resultPopup.style.display = "none";
         }
 
@@ -971,9 +974,11 @@
 
         function closeUserStats() {
             userStatsPopup.style.display = "none";
+            showScreen('lobbyScreen');
         }
 
         function backToLobby() {
+            resultPopup.style.display = "none";
             showScreen('lobbyScreen');
             startGame();
         }
@@ -1002,6 +1007,7 @@
 
         function closeUserStats() {
             userStatsPopup.style.display = "none";
+            showScreen('lobbyScreen');
         }
 
         // Start Game
