@@ -622,6 +622,7 @@
         function declineChallenge(challengerSocketId) {
             socket.emit('declineChallenge', { decliner: currentUser, challengerSocketId: challengerSocketId });
             challengePopup.style.display = "none";
+            showScreen('lobbyScreen');
         }
 
         //Challenge Accepted
@@ -969,22 +970,27 @@
         function acceptRematch(requesterSocketId) {
             socket.emit('acceptRematch', { accepterSocketId: socket.id, requesterSocketId: requesterSocketId });
             challengePopup.style.display = "none";
-            showScreen('gameBoard')
+            resultPopup.style.display = "none";
+            showScreen('gameBoard');
         }
 
         function declineRematch(requesterSocketId) {
             socket.emit('declineRematch', { declinerSocketId: socket.id, requesterSocketId: requesterSocketId });
             challengePopup.style.display = "none";
-            showScreen('gameBoard')
+            resultPopup.style.display = "none";
+            showScreen('lobbyScreen');
         }
 
         socket.on('rematchAccepted', (accepter) => {
             alert(`${accepter.username} accepted the rematch!`);
             startGame(currentRoomId);
+            resultPopup.style.display = "none"; // Hide the result popup
         });
 
         socket.on('rematchDeclined', (decliner) => {
             alert(`${decliner.username} declined the rematch.`);
+            resultPopup.style.display = "none";
+            showScreen('lobbyScreen');
         });
 
         function toggleDropdown() {
@@ -1015,11 +1021,13 @@
             } else {
                 requestRematch();
             }
+            resultPopup.style.display = "none";
         }
 
         // Start Game
         function startGame(roomId) {
-            showScreen('gameScreen');
+           showScreen('gameScreen');
+            resultPopup.style.display = "none"; // Hide the result popup
             gameBoard.innerHTML = '';
             gameBoardState = Array(9).fill(null);
             currentPlayer = 'X';
