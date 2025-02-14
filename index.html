@@ -69,6 +69,26 @@
             color: var(--primary);
         }
 
+        .user-status {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+
+        .status-online {
+            background-color: #2ecc71;
+        }
+
+        .status-offline {
+            background-color: #e74c3c;
+        }
+
+        .status-playing {
+            background-color: #f39c12;
+        }
+
         /* Welcome Screen */
         #welcomeScreen {
             text-align: center;
@@ -445,6 +465,7 @@
             <div class="profile-header">
                 <img id="userAvatar" src="https://via.placeholder.com/60" alt="User Avatar">
                 <h2>Welcome, <span id="userName"></span> (Symbol : <span id="userSymbol"></span>)</h2>
+                <div id="userStatus" class="user-status status-online"></div>
                 <div class="profile-actions">
                     <button class="btn" onclick="toggleDropdown()">
                         <img src="image.png" class="icon" alt="">
@@ -485,7 +506,6 @@
         <!-- Game Screen -->
         <div id="gameScreen" class="screen">
             <button class="btn btn-secondary" onclick="backToLobby()"><img src="left-arrow.png" class="icon" alt="">Back to Lobby</button>
-            <button class="btn btn-primary" onclick="rematch()">rematch</button>
             <h2 id="gameStatus"></h2>
             <div id="gameBoard"></div>
         </div>
@@ -616,11 +636,13 @@
                 draws: 0,
                 experience: 0,
                 gamesPlayed: 0,
-                socketId: socket.id
+                socketId: socket.id,
+                status: 'status-online'
             };
 
             socket.emit("userJoined", currentUser);
             showScreen("lobbyScreen");
+            updateUserStatus(currentUser.status);
 
             userNameSpan.textContent = username;
             document.getElementById("userSymbol").textContent = symbol;
@@ -656,8 +678,9 @@
                         <div class="player-info">
                             <span>${user.username}</span>
                             <span class="player-symbol">(${user.symbol})</span>
+                            <div class="user-status ${user.status}"></div>
                         </div>
-                        <button class="btn btn-primary" onclick="challengeUser('${user.id}', '${user.socketId}')">Challenge</button>
+                        <button class="btn btn-primary" onclick="challengeUser('${user.id}', '${user.socketId}')" ${user.status === 'status-playing' ? 'disabled' : ''}>Challenge</button>
                     `;
                     usersList.appendChild(playerCard);
                 }
@@ -923,8 +946,6 @@
                 var bestScore = 10000;
                 for (var i = 0; i < moves.length; i++) {
                     if (moves[i].score < bestScore) {
-                        bestScore = moves[i]
-                    if (moves[i].score < bestScore) {
                         bestScore = moves[i].score;
                         bestMove = i;
                     }
@@ -933,7 +954,6 @@
 
             return moves[bestMove];
         }
-    }
 
         function handleMoveAI(index) {
             if (gameBoardState[index] || !gameActive) return;
@@ -1065,6 +1085,7 @@
         function backToLobby() {
             closeResultPopup();
             showScreen('lobbyScreen');
+            updateUserStatus('status-online');
         }
 
         function rematch() {
@@ -1088,6 +1109,7 @@
                 currentRoomId = roomId;
             }
             gameStatus.textContent = `Your turn`;
+            updateUserStatus('status-playing');
 
             for (let i = 0; i < 9; i++) {
                 const cell = document.createElement('div');
@@ -1106,10 +1128,29 @@
         function logout() {
             socket.emit('updateStats', currentUser);
             socket.emit('userLeft', currentUser);
+            updateUserStatus('status-offline');
             currentUser = null;
             onlineUsers = [];
             showScreen('welcomeScreen');
         }
+
+        // Add a new function to update user status
+        function updateUserStatus(status) {
+            if (currentUser) {
+                currentUser.status = status;
+                document.getElementById('userStatus').className = `user-status ${status}`;
+                socket.emit('updateUserStatus', { userId: currentUser.id, status: status });
+            }
+        }
+
+        // Add event listener for user status updates
+        socket.on('userStatusUpdated', ({ userId, status }) => {
+            const updatedUserIndex = onlineUsers.findIndex(user => user.id === userId);
+            if (updatedUserIndex !== -1) {
+                onlineUsers[updatedUserIndex].status = status;
+                renderUserList(onlineUsers);
+            }
+        });
     </script>
 </body>
 

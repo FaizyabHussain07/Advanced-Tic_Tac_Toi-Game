@@ -24,10 +24,21 @@ io.on('connection', (socket) => {
             wins: 0,
             losses: 0,
             draws: 0,
-            gamesPlayed: 0
+            gamesPlayed: 0,
+            status: 'status-online'
         };
         users.set(socket.id, userData);
         io.emit('updateUsersList', Array.from(users.values()));
+    });
+
+    // Update user status
+    socket.on('updateUserStatus', ({ userId, status }) => {
+        const user = users.get(socket.id);
+        if (user) {
+            user.status = status;
+            io.emit('userStatusUpdated', { userId, status });
+            io.emit('updateUsersList', Array.from(users.values()));
+        }
     });
 
     // Challenge System
@@ -123,6 +134,11 @@ io.on('connection', (socket) => {
 
     // Disconnection Handling
     socket.on('disconnect', () => {
+        const user = users.get(socket.id);
+        if (user) {
+            user.status = 'status-offline';
+            io.emit('userStatusUpdated', { userId: user.id, status: 'status-offline' });
+        }
         users.delete(socket.id);
         io.emit('updateUsersList', Array.from(users.values()));
 
@@ -132,6 +148,11 @@ io.on('connection', (socket) => {
                 const opponent = game.players.find(id => id !== socket.id);
                 if (opponent) {
                     io.to(opponent).emit('opponentDisconnected');
+                    const opponentUser = users.get(opponent);
+                    if (opponentUser) {
+                        opponentUser.status = 'status-online';
+                        io.emit('userStatusUpdated', { userId: opponentUser.id, status: 'status-online' });
+                    }
                 }
                 activeGames.delete(roomId);
             }
