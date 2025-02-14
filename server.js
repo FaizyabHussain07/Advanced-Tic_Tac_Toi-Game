@@ -91,6 +91,16 @@ io.on('connection', (socket) => {
         }
     });
 
+    // Reset Game
+    socket.on('resetGame', ({ roomId }) => {
+        const game = activeGames.get(roomId);
+        if (game && game.players.includes(socket.id)) {
+            game.board = Array(9).fill(null);
+            game.currentPlayer = 'X';
+            io.to(roomId).emit('gameReset');
+        }
+    });
+
     // Rematch System
     socket.on('rematchRequest', ({ requesterSocketId, opponentSocketId }) => {
         const requester = users.get(requesterSocketId);
@@ -125,6 +135,15 @@ io.on('connection', (socket) => {
 
     // Update user stats
     socket.on('updateStats', (updatedUser) => {
+        const user = users.get(socket.id);
+        if (user) {
+            Object.assign(user, updatedUser);
+            io.emit('updateUsersList', Array.from(users.values()));
+        }
+    });
+
+    // User profile update
+    socket.on('userUpdated', (updatedUser) => {
         const user = users.get(socket.id);
         if (user) {
             Object.assign(user, updatedUser);

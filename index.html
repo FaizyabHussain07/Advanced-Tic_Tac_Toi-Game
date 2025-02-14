@@ -7,7 +7,7 @@
     <title>Tic Tac Toe Game Advanced</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
-<style>
+    <style>
         :root {
             --primary: #3498db;
             --secondary: #2ecc71;
@@ -53,6 +53,7 @@
                 opacity: 0;
                 transform: translateY(-20px);
             }
+
             to {
                 opacity: 1;
                 transform: translateY(0);
@@ -63,7 +64,9 @@
             display: block;
         }
 
-        h1, h2, h3 {
+        h1,
+        h2,
+        h3 {
             margin-bottom: 1rem;
             text-align: center;
             color: var(--primary);
@@ -132,7 +135,7 @@
             cursor: pointer;
         }
 
-        .symbol-selection input:checked + span {
+        .symbol-selection input:checked+span {
             background: var(--primary);
             color: white;
         }
@@ -146,6 +149,11 @@
             background: var(--background);
             padding: 1rem;
             border-radius: 0.5rem;
+        }
+
+        .header-text {
+            display: flex;
+            flex-direction: column;
         }
 
         #userAvatar {
@@ -207,6 +215,10 @@
 
         .player-info {
             flex-grow: 1;
+        }
+
+        .player-info p {
+            color: #2f00ff;
         }
 
         .player-symbol {
@@ -282,6 +294,7 @@
                 transform: translate(-50%, -50%) scale(0.9);
                 opacity: 0;
             }
+
             to {
                 transform: translate(-50%, -50%) scale(1);
                 opacity: 1;
@@ -464,8 +477,17 @@
         <div id="lobbyScreen" class="screen">
             <div class="profile-header">
                 <img id="userAvatar" src="https://via.placeholder.com/60" alt="User Avatar">
-                <h2>Welcome, <span id="userName"></span> (Symbol : <span id="userSymbol"></span>)</h2>
-                <div id="userStatus" class="user-status status-online"></div>
+                <div class="header-text">
+                    <div>
+                        <p style="color: #2f00ff;">
+                            <div id="userStatus" class="user-status status-online"></div>
+                            Game Status
+                        </p>
+                    </div>
+                    <div>
+                        <h2>Welcome, <span id="userName"></span> (Symbol : <span id="userSymbol"></span>)</h2>
+                    </div>
+                </div>
                 <div class="profile-actions">
                     <button class="btn" onclick="toggleDropdown()">
                         <img src="image.png" class="icon" alt="">
@@ -505,7 +527,9 @@
 
         <!-- Game Screen -->
         <div id="gameScreen" class="screen">
-            <button class="btn btn-secondary" onclick="backToLobby()"><img src="left-arrow.png" class="icon" alt="">Back to Lobby</button>
+            <button class="btn btn-secondary" onclick="backToLobby()"><img src="left-arrow.png" class="icon" alt="">Back
+                to Lobby</button>
+            <button class="btn btn-primary" onclick="reset()">Reset</button>
             <h2 id="gameStatus"></h2>
             <div id="gameBoard"></div>
         </div>
@@ -515,8 +539,9 @@
         <div id="resultPopup" class="popup">
             <h2 id="resultText"></h2>
             <div class="game-actions">
-                <button class="btn btn-secondary" onclick="backToLobby()"><img src="left-arrow.png" class="icon" alt="">Back to Lobby</button>
-                <button class="btn btn-primary" onclick="rematch()">rematch</button>
+                <button class="btn btn-secondary" onclick="backToLobby()"><img src="left-arrow.png" class="icon"
+                        alt="">Back to Lobby</button>
+                <button class="btn btn-primary" onclick="rematch()">Rematch</button>
             </div>
         </div>
 
@@ -676,9 +701,9 @@
                     playerCard.innerHTML = `
                         <img src="${user.avatar}" alt="Avatar" style="width: 40px; height: 40px; border-radius: 50%;">
                         <div class="player-info">
-                            <span>${user.username}</span>
-                            <span class="player-symbol">(${user.symbol})</span>
-                            <div class="user-status ${user.status}"></div>
+                            <p><div class="user-status ${user.status}"></div>Game Status</p>
+                           <div> <span>${user.username}</span>
+                            <span class="player-symbol">(${user.symbol})</span></div>
                         </div>
                         <button class="btn btn-primary" onclick="challengeUser('${user.id}', '${user.socketId}')" ${user.status === 'status-playing' ? 'disabled' : ''}>Challenge</button>
                     `;
@@ -987,22 +1012,22 @@
 
         document.getElementById('editProfileForm').addEventListener('submit', function (event) {
             event.preventDefault();
-            const newUsername = document.getElementById('editUsername').value;
-            const newSymbol = document.querySelector('input[name="editSymbol"]:checked').value;
-            const newAvatar = document.getElementById('editAvatarPreview').src;
+                const newUsername = document.getElementById('editUsername').value;
+                const newSymbol = document.querySelector('input[name="editSymbol"]:checked').value;
+                const newAvatar = document.getElementById('editAvatarPreview').src;
 
-            currentUser.username = newUsername;
-            currentUser.symbol = newSymbol;
-            currentUser.avatar = newAvatar;
+                currentUser.username = newUsername;
+                currentUser.symbol = newSymbol;
+                currentUser.avatar = newAvatar;
 
-            userNameSpan.textContent = newUsername;
-            document.getElementById("userSymbol").textContent = newSymbol;
-            userAvatarImage.src = newAvatar;
+                userNameSpan.textContent = newUsername;
+                document.getElementById("userSymbol").textContent = newSymbol;
+                userAvatarImage.src = newAvatar;
 
-            socket.emit('userUpdated', currentUser);
+                socket.emit('userUpdated', currentUser);
 
-            closeEditProfilePopup();
-        });
+                closeEditProfilePopup();
+            });
 
         document.getElementById('editAvatarInput').addEventListener('change', function () {
             if (this.files && this.files[0]) {
@@ -1150,6 +1175,20 @@
                 onlineUsers[updatedUserIndex].status = status;
                 renderUserList(onlineUsers);
             }
+        });
+
+        // Reset function
+        function reset() {
+            if (isPlayingAI) {
+                startGame();
+            } else {
+                socket.emit('resetGame', { roomId: currentRoomId });
+            }
+        }
+
+        // Handle reset game event
+        socket.on('gameReset', () => {
+            startGame(currentRoomId);
         });
     </script>
 </body>
