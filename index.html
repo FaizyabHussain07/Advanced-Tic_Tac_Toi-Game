@@ -475,6 +475,7 @@
                     <option value="hard">🟥 Hard 😈</option>
                 </select>
                 <button class="btn btn-primary" onclick="startAIGame()">Play With AI</button>
+
             </div>
 
             <h3>Play With Online Players</h3>
@@ -484,6 +485,7 @@
         <!-- Game Screen -->
         <div id="gameScreen" class="screen">
             <button class="btn btn-secondary" onclick="backToLobby()"><img src="left-arrow.png" class="icon" alt="">Back to Lobby</button>
+            <button class="btn btn-primary" onclick="rematch()">rematch</button>
             <h2 id="gameStatus"></h2>
             <div id="gameBoard"></div>
         </div>
@@ -494,6 +496,7 @@
             <h2 id="resultText"></h2>
             <div class="game-actions">
                 <button class="btn btn-secondary" onclick="backToLobby()"><img src="left-arrow.png" class="icon" alt="">Back to Lobby</button>
+                <button class="btn btn-primary" onclick="rematch()">rematch</button>
             </div>
         </div>
 
@@ -546,7 +549,8 @@
     <script>
         // Initialize Socket.io
         const socket = io();
-        // Game state
+
+        // Game state variables
         let currentUser = null;
         let onlineUsers = [];
         let gameBoardState = Array(9).fill(null);
@@ -555,8 +559,8 @@
         let isPlayingAI = false;
         let aiDifficulty = "easy";
         let currentOpponent = null;
-        let currentOpponentSocketId = null; // Store opponent's socket ID
-        let currentRoomId; // To store the current room ID
+        let currentOpponentSocketId = null;
+        let currentRoomId;
 
         // DOM Elements
         const screens = {
@@ -578,13 +582,14 @@
         const challengePopup = document.getElementById("challengePopup");
         const userStatsPopup = document.getElementById("userStatsPopup");
 
-
+        // Function to set loading state
         function setLoadingState(button, isLoading) {
             button.disabled = isLoading;
             button.innerHTML = isLoading
                 ? `<div class="loader"></div>`
                 : button.dataset.originalText;
         }
+
         // Show screens
         function showScreen(screenId) {
             Object.values(screens).forEach(screen => screen.classList.remove("active"));
@@ -593,11 +598,11 @@
 
         // Handle login
         function login() {
-           const username = usernameInput.value.trim();
-    if (!username || username.length > 35) {
-        alert('Please enter a valid name (1-35 characters)');
-        return;
-    }
+            const username = usernameInput.value.trim();
+            if (!username || username.length > 35) {
+                alert('Please enter a valid name (1-35 characters)');
+                return;
+            }
             const symbol = document.querySelector("input[name='symbol']:checked").value;
             const avatar = avatarPreview.src;
 
@@ -627,11 +632,9 @@
         avatarInput.addEventListener('change', function () {
             if (this.files && this.files[0]) {
                 const reader = new FileReader();
-
                 reader.onload = function (e) {
                     avatarPreview.src = e.target.result;
                 }
-
                 reader.readAsDataURL(this.files[0]);
             }
         });
@@ -662,10 +665,11 @@
         }
 
         function challengeUser(userId, opponentSocketId) {
-    currentOpponent = onlineUsers.find(user => user.id === userId);
-    currentOpponentSocketId = opponentSocketId;
-    socket.emit('challengeUser', { opponentSocketId: opponentSocketId });
-}
+            currentOpponent = onlineUsers.find(user => user.id === userId);
+            currentOpponentSocketId = opponentSocketId;
+            socket.emit('challengeUser', { opponentSocketId: opponentSocketId });
+        }
+
         socket.on('challengeReceived', (data) => {
             const { challenger } = data;
             challengePopup.innerHTML = `
@@ -687,12 +691,11 @@
             showScreen('lobbyScreen');
         }
 
-        //Challenge Accepted
+        // Challenge Accepted
         socket.on('challengeAccepted', (data) => {
             const { accepter, roomId } = data;
             alert(`${accepter.username} accepted your challenge! Joining game...`);
-            currentOpponentSocketId = accepter.id; // Store opponent's socket ID
-            // Start the game or navigate to the game screen
+            currentOpponentSocketId = accepter.id;
             startGame(roomId);
         });
 
@@ -718,7 +721,6 @@
             cell.classList.add(currentPlayer.toLowerCase());
 
             if (!isPlayingAI) {
-                // Emit the move to the server for online players
                 socket.emit('gameMove', { move: { index, player: currentPlayer }, roomId: currentRoomId });
             }
 
@@ -732,7 +734,7 @@
             }
 
             if (isPlayingAI && currentPlayer !== currentUser.symbol) {
-                setTimeout(aiMove, 500); // AI move after a short delay
+                setTimeout(aiMove, 500);
             }
         }
 
@@ -756,9 +758,9 @@
 
         function checkWin(board = gameBoardState, player = currentPlayer) {
             const winPatterns = [
-                [0, 1, 2], [3, 4, 5], [6, 7, 8], // Rows
-                [0, 3, 6], [1, 4, 7], [2, 5, 8], // Columns
-                [0, 4, 8], [2, 4, 6]             // Diagonals
+                [0, 1, 2], [3, 4, 5], [6, 7, 8],
+                [0, 3, 6], [1, 4, 7], [2, 5, 8],
+                [0, 4, 8], [2, 4, 6]
             ];
 
             for (const pattern of winPatterns) {
@@ -782,19 +784,15 @@
                 resultText = "You Win!";
                 currentUser.wins++;
                 currentUser.experience += 10;
-                currentUser.gamesPlayed++;
-
             } else if (result === "lose") {
                 resultText = "You Lose!";
                 currentUser.losses++;
                 currentUser.experience -= 5;
-                currentUser.gamesPlayed++;
-
             } else {
                 resultText = "It's a Draw!";
                 currentUser.draws++;
-                currentUser.gamesPlayed++;
             }
+            currentUser.gamesPlayed++;
             updateStats();
             showResultPopup(resultText);
         }
@@ -810,39 +808,27 @@
 
         // AI Bot Logic
         function startAIGame() {
-    isPlayingAI = true;
-    currentOpponent = { username: "AI-Bot", symbol: (currentUser.symbol === "X" ? "O" : "X") };
-    aiDifficulty = document.getElementById("aiDifficulty").value;
-    startGame();
-}
+            isPlayingAI = true;
+            currentOpponent = { username: "AI-Bot", symbol: (currentUser.symbol === "X" ? "O" : "X") };
+            aiDifficulty = document.getElementById("aiDifficulty").value;
+            startGame();
+        }
 
         function aiMove() {
-            if (!gameActive || currentPlayer === currentUser.symbol) return; // Only AI's turn
+            if (!gameActive || currentPlayer === currentUser.symbol) return;
 
             let bestMove;
 
             if (aiDifficulty === "easy") {
-                // Easy AI: Random move
-                let availableMoves = [];
-                for (let i = 0; i < gameBoardState.length; i++) {
-                    if (!gameBoardState[i]) {
-                        availableMoves.push(i);
-                    }
-                }
-                if (availableMoves.length > 0) {
-                    bestMove = availableMoves[Math.floor(Math.random() * availableMoves.length)];
-                }
+                bestMove = getRandomMove();
             } else if (aiDifficulty === "medium") {
-                // Medium AI:  Basic blocking
                 bestMove = findWinningMove(currentOpponent.symbol) || findBlockingMove(currentUser.symbol) || getRandomMove();
-            }
-            else if (aiDifficulty === "hard") {
+            } else if (aiDifficulty === "hard") {
                 bestMove = minimax(gameBoardState, currentOpponent.symbol).index;
-
-            }
-            else {
+            } else {
                 bestMove = getRandomMove();
             }
+
             if (bestMove !== undefined) {
                 handleMoveAI(bestMove);
             }
@@ -887,6 +873,7 @@
             }
             return null;
         }
+
         function emptyIndexies(board) {
             return board.reduce((acc, sym, i) => sym === null ? acc.concat(i) : acc, [])
         }
@@ -918,7 +905,7 @@
                     move.score = result.score;
                 }
 
-                newBoard[availSpots[i]] = move.index;
+                newBoard[availSpots[i]] = null;
 
                 moves.push(move);
             }
@@ -936,6 +923,8 @@
                 var bestScore = 10000;
                 for (var i = 0; i < moves.length; i++) {
                     if (moves[i].score < bestScore) {
+                        bestScore = moves[i]
+                    if (moves[i].score < bestScore) {
                         bestScore = moves[i].score;
                         bestMove = i;
                     }
@@ -944,6 +933,7 @@
 
             return moves[bestMove];
         }
+    }
 
         function handleMoveAI(index) {
             if (gameBoardState[index] || !gameActive) return;
@@ -989,7 +979,7 @@
             document.getElementById("userSymbol").textContent = newSymbol;
             userAvatarImage.src = newAvatar;
 
-            socket.emit('userUpdated', currentUser); // Notify the server
+            socket.emit('userUpdated', currentUser);
 
             closeEditProfilePopup();
         });
@@ -1033,7 +1023,7 @@
             socket.emit('acceptRematch', { accepterSocketId: socket.id, requesterSocketId: requesterSocketId });
             challengePopup.style.display = "none";
             resultPopup.style.display = "none";
-            showScreen('gameBoard');
+            showScreen('gameScreen');
         }
 
         function declineRematch(requesterSocketId) {
@@ -1046,7 +1036,7 @@
         socket.on('rematchAccepted', (accepter) => {
             alert(`${accepter.username} accepted the rematch!`);
             startGame(currentRoomId);
-            resultPopup.style.display = "none"; // Hide the result popup
+            resultPopup.style.display = "none";
         });
 
         socket.on('rematchDeclined', (decliner) => {
@@ -1089,7 +1079,7 @@
         // Start Game
         function startGame(roomId) {
             showScreen('gameScreen');
-            resultPopup.style.display = "none"; // Hide the result popup
+            resultPopup.style.display = "none";
             gameBoard.innerHTML = '';
             gameBoardState = Array(9).fill(null);
             currentPlayer = 'X';
@@ -1120,7 +1110,6 @@
             onlineUsers = [];
             showScreen('welcomeScreen');
         }
-
     </script>
 </body>
 

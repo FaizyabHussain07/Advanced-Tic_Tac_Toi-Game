@@ -31,45 +31,93 @@ io.on('connection', (socket) => {
     });
 
     // Challenge System
-    socket.on('challengeUser', (opponentId) => {
+    socket.on('challengeUser', ({ opponentSocketId }) => {
         const challenger = users.get(socket.id);
-        io.to(opponentId).emit('challengeReceived', challenger);
+        io.to(opponentSocketId).emit('challengeReceived', { challenger });
     });
 
-    socket.on('acceptChallenge', ({ challengerId }) => {
-        const roomId = `game-${socket.id}-${challengerId}`;
-        [socket.id, challengerId].forEach(id => {
+    socket.on('acceptChallenge', ({ challengerSocketId }) => {
+        const roomId = `game-${socket.id}-${challengerSocketId}`;
+        [socket.id, challengerSocketId].forEach(id => {
             const player = io.sockets.sockets.get(id);
             if(player) {
                 player.join(roomId);
-                player.emit('gameStart', { 
-                    roomId,
-                    opponent: users.get(id === socket.id ? challengerId : socket.id)
-                });
             }
         });
         
+        const accepter = users.get(socket.id);
+        io.to(challengerSocketId).emit('challengeAccepted', { accepter, roomId });
+        
         activeGames.set(roomId, {
-            players: [socket.id, challengerId],
+            players: [socket.id, challengerSocketId],
             board: Array(9).fill(null),
             currentPlayer: 'X'
         });
+
+        io.to(roomId).emit('gameStart', { roomId });
+    });
+
+    socket.on('declineChallenge', ({ decliner, challengerSocketId }) => {
+        io.to(challengerSocketId).emit('challengeDeclined', decliner);
     });
 
     // Gameplay Handling
-    socket.on('gameMove', ({ index, roomId }) => {
+    socket.on('gameMove', ({ move, roomId }) => {
         const game = activeGames.get(roomId);
         if(game && game.players.includes(socket.id)) {
-            game.board[index] = game.currentPlayer;
+            const { index, player } = move;
+            game.board[index] = player;
             game.currentPlayer = game.currentPlayer === 'X' ? 'O' : 'X';
+            
+            // Broadcast the move to the opponent
+            socket.to(roomId).emit('opponentMove', move);
             
             // Check game status
             const result = checkGameStatus(game.board);
             if(result) {
                 handleGameEnd(roomId, result);
             }
-            
-            io.to(roomId).emit('gameUpdate', game);
+        }
+    });
+
+    // Rematch System
+    socket.on('rematchRequest', ({ requesterSocketId, opponentSocketId }) => {
+        const requester = users.get(requesterSocketId);
+        io.to(opponentSocketId).emit('rematchRequested', { requester });
+    });
+
+    socket.on('acceptRematch', ({ accepterSocketId, requesterSocketId }) => {
+        const accepter = users.get(accepterSocketId);
+        const roomId = `game-${accepterSocketId}-${requesterSocketId}`;
+        
+        [accepterSocketId, requesterSocketId].forEach(id => {
+            const player = io.sockets.sockets.get(id);
+            if(player) {
+                player.join(roomId);
+            }
+        });
+
+        activeGames.set(roomId, {
+            players: [accepterSocketId, requesterSocketId],
+            board: Array(9).fill(null),
+            currentPlayer: 'X'
+        });
+
+        io.to(requesterSocketId).emit('rematchAccepted', accepter);
+        io.to(roomId).emit('gameStart', { roomId });
+    });
+
+    socket.on('declineRematch', ({ declinerSocketId, requesterSocketId }) => {
+        const decliner = users.get(declinerSocketId);
+        io.to(requesterSocketId).emit('rematchDeclined', decliner);
+    });
+
+    // Update user stats
+    socket.on('updateStats', (updatedUser) => {
+        const user = users.get(socket.id);
+        if (user) {
+            Object.assign(user, updatedUser);
+            io.emit('updateUsersList', Array.from(users.values()));
         }
     });
 
@@ -77,6 +125,17 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         users.delete(socket.id);
         io.emit('updateUsersList', Array.from(users.values()));
+
+        // Handle active games
+        for (const [roomId, game] of activeGames.entries()) {
+            if (game.players.includes(socket.id)) {
+                const opponent = game.players.find(id => id !== socket.id);
+                if (opponent) {
+                    io.to(opponent).emit('opponentDisconnected');
+                }
+                activeGames.delete(roomId);
+            }
+        }
     });
 
     // Helper Functions
